@@ -15,15 +15,8 @@ jobs:
 
       - name: 等待 10 秒 
         run: Start-Sleep -s 10
-      - name: Check Python
-        shell: powershell
-        run: |
-          where.exe python
-          python --version
-          where.exe pip
-          pip --version  
 
-     # - name: 6. 執行測試 Case11
-     #   continue-on-error: true
-     #   run: py run_all_cases_like_github.py --only case2
+      - name: 6. 執行測試 Case11
+        continue-on-error: true
+        run: py run_all_cases_like_github.py --only case2
 
