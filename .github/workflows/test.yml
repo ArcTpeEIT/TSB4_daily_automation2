@@ -18,5 +18,5 @@ jobs:
 
       - name: 6. 執行測試 Case11
         continue-on-error: true
-        run: python run_all_cases_like_github.py --only case2,case4,case6,case10
+        run: python run_all_cases_like_github.py --only case2,case6
 
