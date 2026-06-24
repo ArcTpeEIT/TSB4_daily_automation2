@@ -18,9 +18,5 @@ jobs:
 
       - name: 6. 執行測試 Case11
         continue-on-error: true
-        run: python run_all_cases_like_github.py --only case11
-
-      - name: 11. Final TSM4 GUI Factory Default
-        if: always()
-        run: python tsm4_gui_factory_default_standalone.py
+        run: python run_all_cases_like_github.py --only case2
 
