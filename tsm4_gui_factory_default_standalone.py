@@ -58,7 +58,7 @@ _force_utf8_stdio()
 GATEWAY_URL = "http://192.168.0.1/"
 WAIT_TIMEOUT = 30
 ROUTER_USERNAME = "admin"
-ROUTER_PASSWORD = "5nvvnaf3vr"
+ROUTER_PASSWORD = "ngcvgds6fv"
 CHROME_DRIVER_PATH = str(Path(__file__).resolve().parent / "chromedriver.exe")
 
 # Primary XPath from current GUI
