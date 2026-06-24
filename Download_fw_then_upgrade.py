@@ -23,7 +23,7 @@ SFTP_PASS = "%C82B5B3"
 BASE_ROOT = "/TA_booster4/DailyBuild_SPF12.5/"
 
 # Serial & 登入設定
-COM_PORT = 'COM4'
+COM_PORT = 'COM8'
 BAUD_RATE = 115200
 WEB_USER = "rootadmin"
 WEB_PASS = "root!@#"
