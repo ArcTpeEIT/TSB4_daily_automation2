@@ -1,0 +1,26 @@
+name: TSB4_Test_Automation_Flow
+
+on:
+  #schedule:
+   # - cron: '5 9 * * *'
+   # - cron: '55 6 * * *'
+  workflow_dispatch: # 讓您可以手動點擊 Run workflow 測試
+
+jobs:
+  automation_process:
+    runs-on: self-hosted # 指定在您的執行
+    steps:
+      - name: 1. 同步雲端腳本 (Checkout)
+        uses: actions/checkout@v4
+
+      - name: 等待 10 秒 
+        run: Start-Sleep -s 10
+
+      - name: 6. 執行測試 Case11
+        continue-on-error: true
+        run: python run_all_cases_like_github.py --only case11
+
+      - name: 11. Final TSM4 GUI Factory Default
+        if: always()
+        run: python tsm4_gui_factory_default_standalone.py
+
