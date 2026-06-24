@@ -18,7 +18,7 @@ jobs:
 
       - name: 6. 執行測試 Case11
         continue-on-error: true
-        run: python run_all_cases_like_github.py --only case1,case3,case5,case8,case10
+        run: python run_all_cases_like_github.py --only fw_upgrade,case2
 
       - name: 10. Collect All log 
         if: always()
