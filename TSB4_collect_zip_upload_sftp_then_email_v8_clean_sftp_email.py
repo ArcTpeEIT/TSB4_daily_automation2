@@ -45,11 +45,12 @@ def send_email(subject, body, attachments=None):
     sender = 'arctest3903@gmail.com'
     # receiver = 'bill_chen@arcadyan.com'
     receivers = [
-    'bill_chen@arcadyan.com',
-    'zach_chu@arcadyan.com',
-    'chocho_chen@arcadyan.com',
-    'dennis_chiang@arcadyan.com',
-    'quantum_wu@arcadyan.com',    
+    #'bill_chen@arcadyan.com',
+    #'zach_chu@arcadyan.com',
+    #'chocho_chen@arcadyan.com',
+    #'dennis_chiang@arcadyan.com',
+    #'quantum_wu@arcadyan.com',    
+    'yungyi680120@gmail.com',     
     ]
     app_password = 'apthsnwksezkwtbo'
 
