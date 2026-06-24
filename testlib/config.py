@@ -9,7 +9,7 @@ TOTAL_LOOPS = 1
 # =============================================================================
 # HARDWARE PORTS
 # =============================================================================
-BOOSTER_PORT             = "COM4"
+BOOSTER_PORT             = "COM8"
 RELAY_PORT               = "COM3"
 BAUD_RATE                = 115200
 RELAY_ETH_PORT           = 6   # Relay channel: ETH backhaul switch
