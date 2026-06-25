@@ -110,7 +110,8 @@ def build_steps() -> list[Step]:
             Step("case10", "Case 10 Main WiFi Random SSID/Key Sync", py("cases/case10_main_wifi_modify_ssid_key_sync_check_modular.py", *loops_arg), 120),
             Step("case11", "Case 11 Guest WiFi Random SSID/Key Sync", py("cases/case11_guest_wifi_modify_ssid_key_sync_check_modular.py", *loops_arg), 120),
             #Step("case12", "Case 12 TSM4 Wireless FH Disable/Enable Check", py("cases/case12_tsm4_wireless_fh_disable_enable_check_modular.py", *loops_arg)"), 120),
-            Step("case13", "Case 13 BH Random SSID Lost Connect Check", py("cases/case13_bh_random_ssid_lost_connect_check_modular.py", *loops_arg), 20),
+            Step("case13", "Case 13 BH Random SSID Lost Connect Check", py("cases/case13_bh_random_ssid_lost_connect_check_modular.py", *loops_arg), 120),
+            Step("case14", "Case 14 TSM4 WPS + RE WPS Onboarding", py("cases/case14_tsm4_wps_button_re_wps_onboarding_modular.py", *loops_arg), 20),
         ]
     else:
         case1_to_11 = [
