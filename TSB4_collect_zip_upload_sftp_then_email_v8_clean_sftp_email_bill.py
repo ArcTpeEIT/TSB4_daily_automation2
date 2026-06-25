@@ -53,11 +53,7 @@ def send_email(subject, body, attachments=None):
     # receiver = 'bill_chen@arcadyan.com'
     receivers = [
     'bill_chen@arcadyan.com',
-    #'jh_yen@arcadyan.com',
-    #'zach_chu@arcadyan.com',
-    #'chocho_chen@arcadyan.com',
-    #'dennis_chiang@arcadyan.com',
-    #'quantum_wu@arcadyan.com',    
+    'yungyi680120@gmail.com',     
     ]
     app_password = 'apthsnwksezkwtbo'
 
@@ -163,7 +159,9 @@ CASE_DESCRIPTIONS = {
     "case9_Reset RE Onboarding": "Reset only the RE, then verify it can onboard again.",
     "case10_Main_WiFi_Random_SSID_Key_Sync_SpecialChar": "Set random Main Wi-Fi SSID/key with special characters and verify sync from GW to RE.",
     "case11_Guest_WiFi_Random_SSID_Key_Sync_SpecialChar": "Set random Guest Wi-Fi SSID/key with special characters and verify sync from GW to RE.",
+    "case12_TSM4_Wireless_FH_Disable_Enable_Check": "Disable/enable Wireless from TSM4 GUI and verify Booster FH 2.4G/5G UCI state syncs correctly.",
     "case13_BH_Random_SSID_Lost_Connect_Check": "Randomly change Backhaul SSID and verify RE disconnection/reconnection behavior.",
+    "case14_TSM4_WPS_RE_Onboarding": "Trigger TSM4 5GHz WPS push button and run RE WPS PBC command, then verify WiFi BH onboarding completes.",
 }
 
 
