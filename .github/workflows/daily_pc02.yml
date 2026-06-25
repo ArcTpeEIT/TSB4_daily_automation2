@@ -41,6 +41,10 @@ jobs:
         continue-on-error: true
         run: python run_all_cases_like_github.py --only case9
 
+      - name: 8.1. 執行測試 Case14
+        continue-on-error: true
+        run: python run_all_cases_like_github.py --only case14
+        
       - name: 9. 執行測試 Case10, Case11, Case13
         continue-on-error: true
         run: python run_all_cases_like_github.py --only case10,case13
