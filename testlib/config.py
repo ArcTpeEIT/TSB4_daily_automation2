@@ -279,7 +279,6 @@ CASE11_GUEST_KEY_UCI_CMDS = [
 CASE12_FH_24G_DISABLED_CMD = "uci get wireless.@wifi-iface[2].disabled"
 CASE12_FH_5G_DISABLED_CMD  = "uci get wireless.@wifi-iface[5].disabled"
 
-
 # --- Case 13: BH Random SSID Lost Connect Check ------------------------------
 CASE13_ETH_ONBOARDING_INIT_WAIT_TIME = 20
 CASE13_MAX_TOTAL_LIMIT = NORMAL_MAX_TOTAL_LIMIT
@@ -294,6 +293,18 @@ CASE13_EXPECTED_RANDOM_PREFIX = "BH_5_"
 CASE13_ARC_FH_RANDOM_SSID_CMD = "uci get wireless.@wifi-iface[4].ArcFHRandomSSID"
 CASE13_BH_SSID_CMD = "uci get wireless.@wifi-iface[4].ssid"
 CASE13_UCI_CHECK_READ_TIME = 3
+
+# --- Case 14: TSM4 WPS Button + RE WPS Onboarding ----------------------------
+CASE14_RE_FACTORY_DEFAULT_CMD = "factory_default"
+CASE14_RE_FACTORY_DEFAULT_POST_WAIT = 40
+CASE14_WIFI_BH_PRE_WPS_WAIT = 240
+CASE14_AFTER_TSM4_WPS_WAIT = 3
+CASE14_RE_WPS_CMD = "wpa_cli -p /var/run/wpa_supplicant-ath1 wps_pbc multi_ap=2"
+CASE14_RE_WPS_READ_TIME = 3
+CASE14_WPS_ONBOARDING_INIT_WAIT = 300
+CASE14_MAX_TOTAL_LIMIT = NORMAL_MAX_TOTAL_LIMIT
+CASE14_ONBOARDING_THRESHOLD = ONBOARDING_THRESHOLD
+CASE14_WPS_BROWSER_CLOSE_WAIT = 5
 
 # =============================================================================
 # FAIL DIAGNOSTIC & RECOVERY
@@ -386,3 +397,12 @@ XPATH_GUEST_WIFI_SSID_INPUT    = "/html/body/app-root/app-main-base/div/div/main
 XPATH_GUEST_WIFI_KEY_INPUT     = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-basic/form/div[3]/div[8]/div/div/div/input"
 XPATH_GUEST_WIFI_APPLY_BTN     = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-basic/form/div[5]/div/button[2]"
 XPATH_GUEST_WIFI_DISCARD_YES   = "/html/body/ngb-modal-window/div/div/app-modal-discard-changes/div[3]/div/button[2]"
+
+#=============================================================================
+# XPATH - CASE 14  (TSM4 WPS 5GHz Push Button)
+# =============================================================================
+XPATH_WPS_TAB = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/app-top-menu/nav/div/ul/li[5]/a"
+XPATH_WPS_5G_TAB = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/app-top-menu/div[1]/nav/div/ul/li[2]/a"
+XPATH_WPS_5G_PUSH_BUTTON = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-wps/div/div/form/div[3]/div/div/div[1]/div/div/ol/li[2]/button/div"
+XPATH_WPS_5G_PUSH_BUTTON_FALLBACK = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-wps/div/div/form/div[3]/div/div/div[1]/div/div/ol/li[2]"
+XPATH_DISCARD_CHANGES_YES = "/html/body/ngb-modal-window/div/div/app-modal-discard-changes/div[3]/div/button[2]"
