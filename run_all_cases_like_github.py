@@ -97,8 +97,8 @@ def build_steps() -> list[Step]:
 
     if USE_MODULAR_CASE1_TO_CASE13:
         case1_to_13 = [
-            #Step("case1", "Case 1 Factory Default Onboarding", py("cases/case1_re_factory_default_modular.py", *loops_arg), 120),
-            Step("case1", "Case 1 Factory Default Onboarding", py("cases/case1_re_factory_default_modular.py", "--loops", "5"), 120),
+            Step("case1", "Case 1 Factory Default Onboarding", py("cases/case1_re_factory_default_modular.py", *loops_arg), 120),
+            #Step("case1", "Case 1 Factory Default Onboarding", py("cases/case1_re_factory_default_modular.py", "--loops", "5"), 120),
             Step("case2", "Case 2 Standard Onboarding", py("cases/case2_eth_wifi_onboarding_modular.py", *loops_arg), 120),
             Step("case3", "Case 3 Warm Reboot Onboarding", py("cases/case3_re_warm_reboot_modular.py", *loops_arg), 120),
             Step("case4", "Case 4 Cold Reboot Onboarding", py("cases/case4_re_cold_reboot_modular.py", *loops_arg), 120),
