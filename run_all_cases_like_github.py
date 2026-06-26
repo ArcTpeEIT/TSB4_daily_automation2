@@ -45,11 +45,6 @@ from typing import Iterable, Optional
 # User editable defaults
 # ---------------------------------------------------------------------------
 
-# True  : run new modular Case1~Case13 under cases/
-# False : run legacy Case1~Case13 under legacy/
-USE_MODULAR_CASE1_TO_CASE13 = True
-#USE_MODULAR_CASE1_TO_CASE13 = False
-
 # Set True if you want firmware upgrade before testing.
 ENABLE_FW_UPGRADE = True
 #ENABLE_FW_UPGRADE = False
@@ -95,42 +90,24 @@ def build_steps() -> list[Step]:
     """Edit this list to adjust order, command, or sleep time."""
     loops_arg = ["--loops", str(DEFAULT_LOOPS)]
 
-    if USE_MODULAR_CASE1_TO_CASE13:
-        case1_to_13 = [
-            Step("case1", "Case 1 Factory Default Onboarding", py("cases/case1_re_factory_default_modular.py", *loops_arg), 180),
-            #Step("case1", "Case 1 Factory Default Onboarding", py("cases/case1_re_factory_default_modular.py", "--loops", "5"), 120),
-            Step("case2", "Case 2 Standard Onboarding", py("cases/case2_eth_wifi_onboarding_modular.py", *loops_arg), 180),
-            Step("case3", "Case 3 Warm Reboot Onboarding", py("cases/case3_re_warm_reboot_modular.py", *loops_arg), 180),
-            Step("case4", "Case 4 Cold Reboot Onboarding", py("cases/case4_re_cold_reboot_modular.py", *loops_arg), 180),
-            Step("case5", "Case 5 TSM4 GUI Reboot", py("cases/case5_tsm4_restart_modular.py", *loops_arg), 180),
-            Step("case6", "Case 6 Reboot Router + Boosters via TSM4 GUI", py("cases/case6_reboot_gw_re_modular.py", *loops_arg), 180),
-            Step("case7", "Case 7 Reset Router + Boosters via TSM4 GUI", py("cases/case7_reset_router_boosters_modular.py", *loops_arg), 180),
-            Step("case8", "Case 8 Reboot Boosters via TSM4 GUI", py("cases/case8_reboot_re_modular.py", *loops_arg), 180),
-            Step("case9", "Case 9 Reset Boosters via TSM4 GUI", py("cases/case9_reset_re_modular.py", *loops_arg), 180),
-            Step("case10", "Case 10 Main WiFi Random SSID/Key Sync", py("cases/case10_main_wifi_modify_ssid_key_sync_check_modular.py", *loops_arg), 180),
-            Step("case11", "Case 11 Guest WiFi Random SSID/Key Sync", py("cases/case11_guest_wifi_modify_ssid_key_sync_check_modular.py", *loops_arg), 180),
-            #Step("case12", "Case 12 TSM4 Wireless FH Disable/Enable Check", py("cases/case12_tsm4_wireless_fh_disable_enable_check_modular.py", *loops_arg)"), 120),
-            Step("case13", "Case 13 BH Random SSID Lost Connect Check", py("cases/case13_bh_random_ssid_lost_connect_check_modular.py", *loops_arg), 180),
-            Step("case14", "Case 14 TSM4 WPS + RE WPS Onboarding", py("cases/case14_tsm4_wps_button_re_wps_onboarding_modular.py", *loops_arg), 30),
-     120),
-        ]
-    else:
-        case1_to_11 = [
-            Step("case1", "Case 1 Factory Default Onboarding", py("legacy/case1_re_factory_default_v2.py"), 120),
-            Step("case2", "Case 2 Standard Onboarding", py("legacy/case2_eth_wifi_onboarding.py"), 120),
-            Step("case3", "Case 3 Warm Reboot Onboarding", py("legacy/case3_re_warm_reboot.py"), 120),
-            Step("case4", "Case 4 Cold Reboot Onboarding", py("legacy/case4_re_cold_reboot.py"), 120),
-            Step("case5", "Case 5 TSM4 GUI Reboot", py("legacy/case5_tsm4_gui_reboot.py"), 120),
-            Step("case6", "Case 6 Reboot Router + Boosters via TSM4 GUI", py("legacy/case6_tsm4_gui_reboot_gw_re.py"), 120),
-            Step("case7", "Case 7 Reset Router + Boosters via TSM4 GUI", py("legacy/case7_tsm4_gui_reset_gw_re.py"), 120),
-            Step("case8", "Case 8 Reboot Boosters via TSM4 GUI", py("legacy/case8_tsm4_gui_reboot_re.py"), 120),
-            Step("case9", "Case 9 Reset Boosters via TSM4 GUI", py("legacy/case9_tsm4_gui_reset_re.py"), 120),
-            Step("case10", "Case 10 Main WiFi Random SSID/Key Sync", py("legacy/case10_main_wifi_modify_ssid_key_sync_check_ssh_v13.py", "--loops", "1"), 120),
-            Step("case11", "Case 11 Guest WiFi Random SSID/Key Sync", py("legacy/case11_guest_wifi_modify_ssid_key_sync_check_ssh_v7.py", "--loops", "1"), 20),
-        ]
+    selected_cases = [
+        Step("case1", "Case 1 Factory Default Onboarding", py("cases/case1_re_factory_default_modular.py", *loops_arg), 180),
+        #Step("case1", "Case 1 Factory Default Onboarding", py("cases/case1_re_factory_default_modular.py", "--loops", "5"), 120),
+        Step("case2", "Case 2 Standard Onboarding", py("cases/case2_eth_wifi_onboarding_modular.py", *loops_arg), 180),
+        Step("case3", "Case 3 Warm Reboot Onboarding", py("cases/case3_re_warm_reboot_modular.py", *loops_arg), 180),
+        Step("case4", "Case 4 Cold Reboot Onboarding", py("cases/case4_re_cold_reboot_modular.py", *loops_arg), 180),
+        Step("case5", "Case 5 TSM4 GUI Reboot", py("cases/case5_tsm4_restart_modular.py", *loops_arg), 180),
+        Step("case6", "Case 6 Reboot Router + Boosters via TSM4 GUI", py("cases/case6_reboot_gw_re_modular.py", *loops_arg), 180),
+        Step("case7", "Case 7 Reset Router + Boosters via TSM4 GUI", py("cases/case7_reset_router_boosters_modular.py", *loops_arg), 180),
+        Step("case8", "Case 8 Reboot Boosters via TSM4 GUI", py("cases/case8_reboot_re_modular.py", *loops_arg), 180),
+        Step("case9", "Case 9 Reset Boosters via TSM4 GUI", py("cases/case9_reset_re_modular.py", *loops_arg), 180),
+        Step("case10", "Case 10 Main WiFi Random SSID/Key Sync", py("cases/case10_main_wifi_modify_ssid_key_sync_check_modular.py", *loops_arg), 180),
+        Step("case11", "Case 11 Guest WiFi Random SSID/Key Sync", py("cases/case11_guest_wifi_modify_ssid_key_sync_check_modular.py", *loops_arg), 180),
+        #Step("case12", "Case 12 TSM4 Wireless FH Disable/Enable Check", py("cases/case12_tsm4_wireless_fh_disable_enable_check_modular.py", *loops_arg), 180),
+        Step("case13", "Case 13 BH Random SSID Lost Connect Check", py("cases/case13_bh_random_ssid_lost_connect_check_modular.py", *loops_arg), 180),
+        Step("case14", "Case 14 TSM4 WPS + RE WPS Onboarding", py("cases/case14_tsm4_wps_button_re_wps_onboarding_modular.py", *loops_arg), 30),
+    ]
 
-    selected_cases = case1_to_13 if USE_MODULAR_CASE1_TO_CASE13 else case1_to_11
-    
     return [
         Step("initial_wait", "Initial wait", sleep_s=10),
         Step("fw_upgrade", "Firmware upgrade", py("Download_fw_then_upgrade.py"), 180, enabled=ENABLE_FW_UPGRADE),
@@ -291,7 +268,6 @@ def main() -> int:
         print(f"[{ts()}] --loops override active: all case scripts will use --loops {args.loops}", flush=True)
 
     print_banner("TSB4 Python Daily Runner Start")
-    print(f"[{ts()}] USE_MODULAR_CASE1_TO_CASE13 = {USE_MODULAR_CASE1_TO_CASE13}", flush=True)
     print(f"[{ts()}] CONTINUE_ON_FAIL = {continue_on_fail}", flush=True)
     print(f"[{ts()}] DRY_RUN = {args.dry_run}", flush=True)
     print(f"[{ts()}] FAIL_WORKAROUND_ENABLE = {FAIL_WORKAROUND_ENABLE}", flush=True)
