@@ -45,8 +45,9 @@ if __name__ == "__main__":
     apply_args(args)
     init_log_filenames()
     start_background_serial_logger()
+    exit_code = 1
     try:
-        run_gui_action_case(
+        ok = run_gui_action_case(
             cfg.XPATH_REBOOT_RE,
             "Reboot RE",
             cfg.CASE8_MAX_TOTAL_LIMIT,
@@ -54,5 +55,7 @@ if __name__ == "__main__":
             cfg.CASE8_ETH_ONBOARDING_INIT_WAIT_TIME,
             cfg.CASE8_WIFI_ONBOARDING_INIT_WAIT_TIME,
         )
+        exit_code = 0 if ok else 1
     finally:
         stop_background_serial_logger()
+    raise SystemExit(exit_code)

@@ -57,8 +57,5 @@ if __name__ == "__main__":
         )
         exit_code = 0 if ok else 1
     finally:
-        try:
-            stop_background_serial_logger(close_serial=True)
-        except TypeError:
-            stop_background_serial_logger()
+        stop_background_serial_logger()
     raise SystemExit(exit_code)

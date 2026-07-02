@@ -134,6 +134,7 @@ def run_gui_action_case(action_xpath, action_label, max_total_limit, threshold=N
     except KeyboardInterrupt:
         log_result(f"{cfg.TEST_CASE_NAME}: interrupted by user")
         log_progress("使用者中斷測試。")
+        restore_eth_backhaul("使用者中斷")
         return False
     except Exception as e:
         log_result(f"{cfg.TEST_CASE_NAME}: FAIL, unexpected error {type(e).__name__}: {e}")

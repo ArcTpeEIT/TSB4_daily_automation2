@@ -95,23 +95,27 @@ def run_test():
             active_driver = None
             if not eth_pass:
                 log_progress(f"LOOP {loop} ETH BH FAIL / GUI Error，停止測試，不繼續 WiFi BH。")
-                return
+                return 1
 
             wifi_pass = execute_stage(loop, "WiFi BH", "off", None)
             if not wifi_pass:
                 log_progress(f"LOOP {loop} WiFi BH FAIL / GUI Error，停止測試。")
-                return
+                return 1
 
             log_progress(f"LOOP {loop} PASS。")
             restore_eth_backhaul_between_loops(loop)
 
         restore_eth_backhaul("測試 PASS 結束")
         log_separator("所有測試迴圈執行完畢，結果 PASS")
+        return 0
     except KeyboardInterrupt:
         log_progress("使用者中斷測試。")
+        restore_eth_backhaul("使用者中斷")
+        return 130
     except Exception as e:
         log_progress(f"主程式發生未預期錯誤: {type(e).__name__}: {e}")
         restore_eth_backhaul("主程式未預期錯誤")
+        return 1
     finally:
         if active_driver is not None:
             try:
@@ -126,7 +130,9 @@ if __name__ == "__main__":
     apply_args(args)
     init_log_filenames()
     start_background_serial_logger()
+    exit_code = 1
     try:
-        run_test()
+        exit_code = run_test()
     finally:
         stop_background_serial_logger()
+    raise SystemExit(exit_code)

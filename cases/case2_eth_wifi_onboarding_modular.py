@@ -46,7 +46,6 @@ def apply_args(args):
     cfg.RELAY_PORT = args.relay_port
     cfg.CASE2_ETH_ONBOARDING_INIT_WAIT_TIME = args.case2_eth_init_wait
     cfg.CASE2_WIFI_ONBOARDING_INIT_WAIT_TIME = args.case2_wifi_init_wait
-    cfg.CASE2_ONBOARDING_INIT_WAIT_TIME = cfg.CASE2_ETH_ONBOARDING_INIT_WAIT_TIME
     cfg.CASE2_MAX_TOTAL_LIMIT = args.case2_max_total_limit
     cfg.PASS_COOLDOWN_TIME = args.pass_cooldown_time
     cfg.LOOP_ETH_RESTORE_WAIT = args.loop_eth_restore_wait
@@ -79,7 +78,7 @@ def run_test():
                 max_total_limit=cfg.CASE2_MAX_TOTAL_LIMIT,
             ):
                 log_progress(f"LOOP {loop} ETH BH FAIL，停止測試，不繼續 WiFi BH。")
-                return
+                return 1
 
             log_separator(f"LOOP {loop} - WiFi BH 測試開始")
             control_relay("off")
@@ -96,19 +95,23 @@ def run_test():
                 max_total_limit=cfg.CASE2_MAX_TOTAL_LIMIT,
             ):
                 log_progress(f"LOOP {loop} WiFi BH FAIL，停止測試。")
-                return
+                return 1
 
             log_progress(f"LOOP {loop} PASS。")
             restore_eth_backhaul_between_loops(loop)
 
         restore_eth_backhaul("測試 PASS 結束")
         log_separator("所有測試迴圈執行完畢，結果 PASS")
+        return 0
 
     except KeyboardInterrupt:
         log_progress("使用者中斷測試。")
+        restore_eth_backhaul("使用者中斷")
+        return 130
     except Exception as e:
         log_progress(f"主程式發生未預期錯誤: {type(e).__name__}: {e}")
         restore_eth_backhaul("主程式未預期錯誤")
+        return 1
 
 
 if __name__ == "__main__":
@@ -117,7 +120,9 @@ if __name__ == "__main__":
     apply_args(args)
     init_log_filenames()
     start_background_serial_logger()
+    exit_code = 1
     try:
-        run_test()
+        exit_code = run_test()
     finally:
         stop_background_serial_logger()
+    raise SystemExit(exit_code)

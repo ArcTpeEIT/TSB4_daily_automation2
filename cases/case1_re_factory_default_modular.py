@@ -11,6 +11,7 @@ case1_re_factory_default_modular.py
 import argparse
 import os
 import sys
+import time
 
 # 讓從 cases/ 目錄執行時也能 import ../testlib
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -101,7 +102,6 @@ def run_test():
             log_separator(f"LOOP {loop} - WiFi BH 測試開始")
             log_progress("STEP: 切換 WiFi BH - relay 6 off")
             control_relay("off")
-            import time
             duration_start_time = time.time()
             receive_monitor(cfg.RELAY_SETTLE_TIME)
 
@@ -128,6 +128,7 @@ def run_test():
 
     except KeyboardInterrupt:
         log_progress("使用者中斷測試。")
+        restore_eth_backhaul("使用者中斷")
         return 130
     except Exception as e:
         log_progress(f"主程式發生未預期錯誤: {type(e).__name__}: {e}")
@@ -145,8 +146,5 @@ if __name__ == "__main__":
     try:
         exit_code = run_test()
     finally:
-        try:
-            stop_background_serial_logger(close_serial=True)
-        except TypeError:
-            stop_background_serial_logger()
+        stop_background_serial_logger()
     raise SystemExit(exit_code)

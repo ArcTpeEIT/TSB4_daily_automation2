@@ -49,6 +49,7 @@ from testlib.serial_console import (
     get_serial_for_command,
 )
 from testlib.ssh_client import run_ssh_command, discover_ssh_host_by_serial
+from testlib.recovery import safe_handle_fail_recovery
 from cases._case_common import add_common_args, apply_common_args
 
 
@@ -61,21 +62,28 @@ def _cfg(name, default):
     return getattr(cfg, name, default)
 
 
-def generate_random_value(prefix, total_random_len):
+def generate_random_value(prefix, total_random_len, special_chars=None):
     normal_chars = string.ascii_letters + string.digits
-    special_chars = _cfg("CASE10_SPECIAL_CHARS", "!@#%^&*_-+=?")
-    special = random.choice(special_chars)
+    if special_chars is None:
+        special_chars = _cfg("CASE10_SPECIAL_CHARS", "!@#%^&*_-+=?")
 
     total_random_len = max(int(total_random_len), 2)
-    random_part = [random.choice(normal_chars) for _ in range(total_random_len - 1)]
-    random_part.append(special)
+    if special_chars:
+        random_part = [random.choice(normal_chars) for _ in range(total_random_len - 1)]
+        random_part.append(random.choice(special_chars))
+    else:
+        random_part = [random.choice(normal_chars) for _ in range(total_random_len)]
     random.shuffle(random_part)
     return f"{prefix}-{''.join(random_part)}"
 
 
 def generate_wifi_profile(prefix):
-    ssid = generate_random_value(prefix, _cfg("CASE10_SSID_RANDOM_LEN", 8))
-    key = generate_random_value(_cfg("CASE10_WIFI_KEY_PREFIX", "K"), _cfg("CASE10_WIFI_KEY_RANDOM_LEN", 14))
+    ssid = generate_random_value(prefix, _cfg("CASE10_SSID_RANDOM_LEN", 8), special_chars="")
+    key = generate_random_value(
+        _cfg("CASE10_WIFI_KEY_PREFIX", "K"),
+        _cfg("CASE10_WIFI_KEY_RANDOM_LEN", 14),
+        special_chars=_cfg("CASE10_KEY_SPECIAL_CHARS", "!@#%^&*_-+=?"),
+    )
 
     if len(key) < 8 or len(key) > 63:
         raise ValueError(f"Generated WiFi key length invalid: {len(key)}")
@@ -401,9 +409,8 @@ def run_test():
             )
 
             if not eth_ok:
-                from testlib.recovery import safe_handle_fail_recovery
-                safe_handle_fail_recovery(f"Loop{loop}_case10_ETH_BH_Fail")
-                return
+                safe_handle_fail_recovery(f"Loop{loop}_case10_ETH_BH_Fail", restore_eth_bh=True)
+                return 1
 
             log_progress(f"LOOP {loop} ETH BH PASS，cooldown {cfg.PASS_COOLDOWN_TIME}s 後執行 WiFi BH")
             receive_monitor(cfg.PASS_COOLDOWN_TIME)
@@ -426,9 +433,8 @@ def run_test():
             )
 
             if not wifi_ok:
-                from testlib.recovery import safe_handle_fail_recovery
-                safe_handle_fail_recovery(f"Loop{loop}_case10_WiFi_BH_Fail")
-                return
+                safe_handle_fail_recovery(f"Loop{loop}_case10_WiFi_BH_Fail", restore_eth_bh=True)
+                return 1
 
             log_progress(f"LOOP {loop} PASS")
             if loop < cfg.TOTAL_LOOPS:
@@ -436,13 +442,16 @@ def run_test():
 
         restore_eth_backhaul("測試 PASS 結束")
         log_separator("所有測試迴圈執行完畢，結果 PASS")
+        return 0
 
     except KeyboardInterrupt:
         log_progress("使用者中斷測試。")
         restore_eth_backhaul("使用者中斷")
+        return 130
     except Exception as e:
         log_result(f"主程式發生未預期錯誤: {type(e).__name__}: {e}")
         restore_eth_backhaul("主程式未預期錯誤")
+        return 1
 
 
 def parse_args():
@@ -457,7 +466,9 @@ if __name__ == "__main__":
     apply_common_args(args)
     init_log_filenames()
     start_background_serial_logger()
+    exit_code = 1
     try:
-        run_test()
+        exit_code = run_test()
     finally:
         stop_background_serial_logger()
+    raise SystemExit(exit_code)

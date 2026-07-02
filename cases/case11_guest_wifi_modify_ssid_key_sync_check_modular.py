@@ -49,6 +49,7 @@ from testlib.serial_console import (
     get_serial_for_command,
 )
 from testlib.ssh_client import run_ssh_command, discover_ssh_host_by_serial
+from testlib.recovery import safe_handle_fail_recovery
 from cases._case_common import add_common_args, apply_common_args
 
 
@@ -61,21 +62,28 @@ def _cfg(name, default):
     return getattr(cfg, name, default)
 
 
-def generate_random_value(prefix, total_random_len):
+def generate_random_value(prefix, total_random_len, special_chars=None):
     normal_chars = string.ascii_letters + string.digits
-    special_chars = _cfg("CASE11_SPECIAL_CHARS", "!@#%^&*_-+=?")
-    special = random.choice(special_chars)
+    if special_chars is None:
+        special_chars = _cfg("CASE11_SPECIAL_CHARS", "!@#%^&*_-+=?")
 
     total_random_len = max(int(total_random_len), 2)
-    random_part = [random.choice(normal_chars) for _ in range(total_random_len - 1)]
-    random_part.append(special)
+    if special_chars:
+        random_part = [random.choice(normal_chars) for _ in range(total_random_len - 1)]
+        random_part.append(random.choice(special_chars))
+    else:
+        random_part = [random.choice(normal_chars) for _ in range(total_random_len)]
     random.shuffle(random_part)
     return f"{prefix}-{''.join(random_part)}"
 
 
 def generate_wifi_profile(prefix):
-    ssid = generate_random_value(prefix, _cfg("CASE11_SSID_RANDOM_LEN", 8))
-    key = generate_random_value(_cfg("CASE11_GUEST_WIFI_KEY_PREFIX", "K"), _cfg("CASE11_WIFI_KEY_RANDOM_LEN", 14))
+    ssid = generate_random_value(prefix, _cfg("CASE11_SSID_RANDOM_LEN", 8), special_chars="")
+    key = generate_random_value(
+        _cfg("CASE11_GUEST_WIFI_KEY_PREFIX", "K"),
+        _cfg("CASE11_WIFI_KEY_RANDOM_LEN", 14),
+        special_chars=_cfg("CASE11_KEY_SPECIAL_CHARS", "!@#%^&*_-+=?"),
+    )
 
     if len(key) < 8 or len(key) > 63:
         raise ValueError(f"Generated WiFi key length invalid: {len(key)}")
@@ -287,12 +295,6 @@ def _safe_xpath_value(name, default):
     return value or default
 
 
-def _click_js(driver, element):
-    driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
-    receive_monitor(float(_cfg("CASE11_GUI_FIELD_SCROLL_WAIT", 0.5)))
-    driver.execute_script("arguments[0].click();", element)
-
-
 def handle_discard_changes_modal(driver, note=""):
     """Click the TSM4 'Discard Changes' -> Yes modal if it appears.
 
@@ -360,7 +362,7 @@ def set_guest_wifi_enabled(driver, wait, enable=True):
 
     if opposite_text in state_text:
         log_progress(f"Guest WiFi 目前不是 {desired_text}，點擊 Enable Wireless toggle 切成 {desired_text}")
-        _click_js(driver, toggle)
+        js_click(driver, toggle)
         receive_monitor(float(_cfg("CASE11_GUI_TOGGLE_WAIT", 2)))
     else:
         log_progress(f"Guest WiFi 看起來已是 {desired_text} 或無法判讀狀態，略過 toggle")
@@ -507,9 +509,8 @@ def run_test():
             )
 
             if not eth_ok:
-                from testlib.recovery import safe_handle_fail_recovery
                 safe_handle_fail_recovery(f"Loop{loop}_case11_ETH_BH_Fail")
-                return
+                return 1
 
             log_progress(f"LOOP {loop} ETH BH PASS，cooldown {cfg.PASS_COOLDOWN_TIME}s 後執行 WiFi BH")
             receive_monitor(cfg.PASS_COOLDOWN_TIME)
@@ -532,9 +533,8 @@ def run_test():
             )
 
             if not wifi_ok:
-                from testlib.recovery import safe_handle_fail_recovery
                 safe_handle_fail_recovery(f"Loop{loop}_case11_WiFi_BH_Fail")
-                return
+                return 1
 
             log_progress(f"LOOP {loop} PASS")
             if loop < cfg.TOTAL_LOOPS:
@@ -542,13 +542,16 @@ def run_test():
 
         restore_eth_backhaul("測試 PASS 結束")
         log_separator("所有測試迴圈執行完畢，結果 PASS")
+        return 0
 
     except KeyboardInterrupt:
         log_progress("使用者中斷測試。")
         restore_eth_backhaul("使用者中斷")
+        return 130
     except Exception as e:
         log_result(f"主程式發生未預期錯誤: {type(e).__name__}: {e}")
         restore_eth_backhaul("主程式未預期錯誤")
+        return 1
 
 
 def parse_args():
@@ -563,7 +566,9 @@ if __name__ == "__main__":
     apply_common_args(args)
     init_log_filenames()
     start_background_serial_logger()
+    exit_code = 1
     try:
-        run_test()
+        exit_code = run_test()
     finally:
         stop_background_serial_logger()
+    raise SystemExit(exit_code)
