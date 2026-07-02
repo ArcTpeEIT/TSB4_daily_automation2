@@ -103,28 +103,56 @@ FINAL_ONBOARDING_CHECK_WAIT = 3
 INIT_WAIT_TIME              = 120  # Generic init wait (s); most cases override this
 
 # Relay settle / BH restore
-RELAY_SETTLE_TIME     = 3    # Wait after relay switch before next action (s)
+RELAY_SETTLE_TIME     = 3     # Wait after relay switch before next action (s)
 RESTORE_ETH_BH_WAIT   = 10   # Wait after restoring ETH BH relay (s)
 LOOP_ETH_RESTORE_WAIT = 120  # Multi-loop cooldown: after WiFi BH PASS, restore relay → ETH BH
 
 # =============================================================================
-# ONBOARDING TIMERS – PER CASE
+# XPATH – SHARED (Login / Nav / Modals)
 # =============================================================================
+# Login page
+XPATH_LOGIN_USER = "/html/body/app-root/app-login/div/header/div[2]/form/div/div[1]/input"
+XPATH_LOGIN_PASS = "/html/body/app-root/app-login/div/header/div[2]/form/div/div[2]/input"
 
-# --- Case 1: Initial Onboarding (factory default or normal) ------------------
+# FW version label on login screen
+XPATH_ROUTER_FW  = "/html/body/app-root/app-login/div/main/div[1]/div[1]/div[1]/span[2]"
+
+# Top nav quick-links
+XPATH_WIFI_SETTINGS = "/html/body/app-root/app-main-base/div/app-header/nav/div/div[2]/app-quick-links/div/div[3]/div/div/a/p"
+XPATH_SETTINGS      = "/html/body/app-root/app-main-base/div/app-header/nav/div/div[2]/app-quick-links/div/div[4]/div/div/a/p"
+
+# WiFi sub-tabs
+XPATH_WIFI_MESH     = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/app-top-menu/nav/div/ul/li[4]/a"
+XPATH_WIFI_BOOSTERS = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/app-top-menu/div[1]/nav/div/ul/li[2]/a"
+
+# Modal dialogs
+XPATH_CONFIRM_YES       = "/html/body/ngb-modal-window/div/div/app-generic-modal/div[3]/button[2]"
+XPATH_DISCARD_CLOSE_BTN = "/html/body/ngb-modal-window/div/div/app-modal-discard-changes/div[3]/div/button[2]"
+
+# WiFi Basic page – shared by Case 10, 11, 12
+XPATH_WIRELESS_ENABLE_TOGGLE = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-basic/form/div[2]/div[2]/div/div/div/app-label-toggle/div/div[2]/div"
+XPATH_WIFI_BASIC_APPLY       = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-basic/form/div[4]/div/button[2]"
+
+# =============================================================================
+# CASE 1 – Initial Onboarding (factory default or normal)
+# =============================================================================
 CASE1_FACTORY_DEFAULT_INIT_WAIT_TIME  = 250
 CASE1_NORMAL_INIT_WAIT_TIME           = 90
 # Both modes use RESET_MAX_TOTAL_LIMIT; factory default is a reset-style flow.
 CASE1_FACTORY_DEFAULT_MAX_TOTAL_LIMIT = RESET_MAX_TOTAL_LIMIT
 CASE1_NORMAL_MAX_TOTAL_LIMIT          = RESET_MAX_TOTAL_LIMIT
 
-# --- Case 2: ETH / WiFi BH Switch --------------------------------------------
+# =============================================================================
+# CASE 2 – ETH / WiFi BH Switch
+# =============================================================================
 CASE2_ETH_ONBOARDING_INIT_WAIT_TIME  = 20
 CASE2_WIFI_ONBOARDING_INIT_WAIT_TIME = 90
 CASE2_ONBOARDING_INIT_WAIT_TIME      = CASE2_ETH_ONBOARDING_INIT_WAIT_TIME  # Backward-compat
 CASE2_MAX_TOTAL_LIMIT                = NORMAL_MAX_TOTAL_LIMIT
 
-# --- Case 3: RE Warm Reboot --------------------------------------------------
+# =============================================================================
+# CASE 3 – RE Warm Reboot
+# =============================================================================
 RE_WARM_REBOOT_POST_WAIT             = 10   # Wait after reboot command sent (s)
 RE_WARM_REBOOT_RELAY_POST_WAIT       = 15   # Wait after relay action (s)
 RE_WARM_REBOOT_INIT_WAIT_TIME        = 150  # Backward-compat
@@ -132,7 +160,9 @@ CASE3_ETH_ONBOARDING_INIT_WAIT_TIME  = 60
 CASE3_WIFI_ONBOARDING_INIT_WAIT_TIME = 90
 CASE3_MAX_TOTAL_LIMIT                = NORMAL_MAX_TOTAL_LIMIT
 
-# --- Case 4: RE Cold Reboot --------------------------------------------------
+# =============================================================================
+# CASE 4 – RE Cold Reboot
+# =============================================================================
 RE_COLD_REBOOT_POWER_OFF_TIME        = 10   # Duration to cut RE power (s)
 RE_COLD_REBOOT_POST_WAIT             = 10   # Wait after power restored (s)
 RE_COLD_REBOOT_RELAY_POST_WAIT       = 15   # Wait after relay action (s)
@@ -140,16 +170,27 @@ RE_COLD_REBOOT_INIT_WAIT_TIME        = 140  # Backward-compat
 CASE4_ETH_ONBOARDING_INIT_WAIT_TIME  = 90
 CASE4_WIFI_ONBOARDING_INIT_WAIT_TIME = 160  # (was 191)
 CASE4_MAX_TOTAL_LIMIT                = NORMAL_MAX_TOTAL_LIMIT
+# NOTE: relay channel used by this case -> RE_COLD_POWER_RELAY_PORT (see HARDWARE PORTS)
 
-# --- Case 5: TSM4 GUI Restart ------------------------------------------------
+# =============================================================================
+# CASE 5 – TSM4 GUI Restart
+# =============================================================================
 TSM4_REBOOT_CHROME_CLOSE_WAIT        = 5    # Wait before closing Chrome (s)
 TSM4_REBOOT_POST_WAIT                = 10   # Wait after restart triggered (s)
 TSM4_REBOOT_RELAY_POST_WAIT          = 120  # Wait after relay restores power (s)
+TSM4_RELAY_REBOOT_OFF_WAIT           = 8    # How long relay stays off when power-cycling TSM4 (s)
+TSM4_GUI_RELAY_BOOT_WAIT             = 300  # Wait after relay on before GUI retry (s)
 CASE5_ETH_ONBOARDING_INIT_WAIT_TIME  = 30
 CASE5_WIFI_ONBOARDING_INIT_WAIT_TIME = 120
 CASE5_MAX_TOTAL_LIMIT                = NORMAL_MAX_TOTAL_LIMIT
 
-# --- Case 6: GW Reboot All RE ------------------------------------------------
+# XPATH – Case 5 (Settings → Maintenance → Restart)
+XPATH_MAINTENANCE  = "/html/body/app-root/app-main-base/div/div/main/app-mybox-main/div/div/app-top-menu/nav/div/ul/li[8]/a"
+XPATH_TSM4_RESTART = "/html/body/app-root/app-main-base/div/div/main/app-mybox-main/div/div/app-maintenace-main/div/div/app-maintenance-resets/form/div/div[1]/div[2]/button"
+
+# =============================================================================
+# CASE 6 – GW Reboot All RE
+# =============================================================================
 GW_FW_TO_GUI_ACTION_SLEEP            = 3    # Wait between FW-version fetch and GUI action (s)
 REBOOT_SYNC_WAIT                     = 20   # Wait for GW to sync after reboot trigger (s)
 REBOOT_INIT_WAIT_TIME                = 120  # Backward-compat
@@ -157,26 +198,40 @@ CASE6_ETH_ONBOARDING_INIT_WAIT_TIME  = 90
 CASE6_WIFI_ONBOARDING_INIT_WAIT_TIME = 210  # (was 240)
 CASE6_MAX_TOTAL_LIMIT                = NORMAL_MAX_TOTAL_LIMIT
 
-# --- Case 7: GW Reset All RE -------------------------------------------------
+# XPATH – Case 6 / 7 / 8 / 9 (Mesh extender reboot / reset buttons, shared)
+XPATH_REBOOT_ALL = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-mesh/div/app-wifi-mesh-extenders/div/div/div[1]/button[1]"
+XPATH_RESET_ALL  = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-mesh/div/app-wifi-mesh-extenders/div/div/div[1]/button[2]"
+XPATH_REBOOT_RE  = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-mesh/div/app-wifi-mesh-extenders/div/div/div[1]/button[3]"
+XPATH_RESET_RE   = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-mesh/div/app-wifi-mesh-extenders/div/div/div[1]/button[4]"
+
+# =============================================================================
+# CASE 7 – GW Reset All RE
+# =============================================================================
 RESET_INIT_WAIT_TIME                 = 180  # Backward-compat
 CASE7_ETH_ONBOARDING_INIT_WAIT_TIME  = 230
 CASE7_WIFI_ONBOARDING_INIT_WAIT_TIME = 500
 CASE7_MAX_TOTAL_LIMIT                = RESET_MAX_TOTAL_LIMIT
 
-# --- Case 8: GW Reboot Single RE ---------------------------------------------
+# =============================================================================
+# CASE 8 – GW Reboot Single RE
+# =============================================================================
 CASE8_ETH_ONBOARDING_INIT_WAIT_TIME  = 110  # (was 130)
 CASE8_WIFI_ONBOARDING_INIT_WAIT_TIME = 180  # (was 200)
 CASE8_MAX_TOTAL_LIMIT                = NORMAL_MAX_TOTAL_LIMIT
 
-# --- Case 9: GW Reset Single RE ----------------------------------------------
+# =============================================================================
+# CASE 9 – GW Reset Single RE
+# =============================================================================
 CASE9_ETH_ONBOARDING_INIT_WAIT_TIME  = 180  # (was 201)
 CASE9_WIFI_ONBOARDING_INIT_WAIT_TIME = 450  # (was 491)
 CASE9_MAX_TOTAL_LIMIT                = RESET_MAX_TOTAL_LIMIT
 
-# --- Case 10: Main WiFi SSID / Key Modify ------------------------------------
+# =============================================================================
+# CASE 10 – Main WiFi SSID / Key Modify
+# =============================================================================
 # Monitor time for RE sync after GUI Apply.
-CASE10_ETH_AFTER_GUI_APPLY_MONITOR_TIME  = 180
-CASE10_WIFI_AFTER_GUI_APPLY_MONITOR_TIME = 300
+CASE10_ETH_AFTER_GUI_APPLY_MONITOR_TIME  = 120
+CASE10_WIFI_AFTER_GUI_APPLY_MONITOR_TIME = 240
 
 # Random profile for Case10
 CASE10_ETH_SSID_PREFIX = "ETHSYNC"
@@ -184,7 +239,8 @@ CASE10_WIFI_SSID_PREFIX = "WIFISYNC"
 CASE10_WIFI_KEY_PREFIX = "K"
 CASE10_SSID_RANDOM_LEN = 8
 CASE10_WIFI_KEY_RANDOM_LEN = 14
-CASE10_SPECIAL_CHARS = "!@#%^&*_-+=?"
+CASE10_SPECIAL_CHARS = ""
+CASE10_KEY_SPECIAL_CHARS = "!@#%^&*_-+=?"
 
 # GUI wait for Case10
 CASE10_WIFI_PAGE_WAIT = 10
@@ -192,10 +248,29 @@ CASE10_BEFORE_APPLY_WAIT = 2
 CASE10_AFTER_APPLY_WAIT = 5
 
 # SSH UCI check
-CASE10_SSH_UCI_TIMEOUT = 5
+CASE10_SSH_UCI_TIMEOUT = 15
 
+# UCI commands – Case 10 Main WiFi VAP index validation
+CASE10_SSID_UCI_CMDS = [
+    "uci get wireless.@wifi-iface[2].ssid",
+    "uci get wireless.@wifi-iface[5].ssid",
+    "uci get wireless.mld3.mld_ssid",
+]
+CASE10_KEY_UCI_CMDS = [
+    "uci get wireless.@wifi-iface[2].key",
+    "uci get wireless.@wifi-iface[2].sae_password",
+    "uci get wireless.@wifi-iface[5].key",
+    "uci get wireless.@wifi-iface[5].sae_password",
+]
 
-# --- Case 11: Guest WiFi SSID / Key Modify -----------------------------------
+# XPATH – Case 10 (Main WiFi SSID / Key Modify)
+# NOTE: also uses shared XPATH_WIRELESS_ENABLE_TOGGLE / XPATH_WIFI_BASIC_APPLY above.
+XPATH_MAIN_WIFI_SSID_INPUT = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-basic/form/div[2]/div[8]/app-label-input/div/div[2]/input"
+XPATH_MAIN_WIFI_KEY_INPUT  = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-basic/form/div[3]/div[8]/div/div/div/input"
+
+# =============================================================================
+# CASE 11 – Guest WiFi SSID / Key Modify
+# =============================================================================
 # Monitor time for RE sync after GUI Apply.
 CASE11_ETH_AFTER_GUI_APPLY_MONITOR_TIME  = 120
 CASE11_WIFI_AFTER_GUI_APPLY_MONITOR_TIME = 240
@@ -206,7 +281,8 @@ CASE11_WIFI_GUEST_SSID_PREFIX = "WIFIGUEST"
 CASE11_GUEST_WIFI_KEY_PREFIX  = "K"
 CASE11_SSID_RANDOM_LEN        = 8
 CASE11_WIFI_KEY_RANDOM_LEN    = 14
-CASE11_SPECIAL_CHARS          = "!@#%^&*_-+=?"
+CASE11_SPECIAL_CHARS          = ""
+CASE11_KEY_SPECIAL_CHARS      = "!@#%^&*_-+=?"
 
 # GUI wait for Case11
 CASE11_GUI_OPEN_WAIT = 2
@@ -233,35 +309,7 @@ CASE11_KEY_UCI_GROUPS = [
 # Cleanup after Case11 PASS
 CASE11_CLEANUP_DISABLE_GUEST_WIFI = True
 
-# --- Case 12: TSM4 Wireless FH Disable / Enable ------------------------------
-CASE12_ETH_BH_INIT_WAIT     = 20    # Wait after relay → ETH BH before test (s)
-CASE12_WIFI_BH_INIT_WAIT    = 180   # Wait after relay → WiFi BH before test (s)
-CASE12_WIRELESS_SYNC_WAIT   = 120   # Wait for Booster FH sync after GUI Apply (s)
-CASE12_ENABLE_RECOVERY_WAIT = 60    # Wait after GUI re-enable when disable fails (s)
-CASE12_GUI_MAX_ATTEMPTS     = 2     # GUI action retry limit
-CASE12_GUI_RETRY_WAIT       = 30    # Wait between GUI retries (s)
-CASE12_FAIL_REBOOT_COOLDOWN = 60    # Monitor/cooldown after Booster reboot on FAIL (s)
-CASE12_FAIL_REBOOT_CMD      = "reboot"
-
-
-# =============================================================================
-# UCI COMMANDS  (Booster / RE shell)
-# =============================================================================
-
-# --- Case 10: Main WiFi VAP Index Validation ---
-CASE10_SSID_UCI_CMDS = [
-    "uci get wireless.@wifi-iface[2].ssid",
-    "uci get wireless.@wifi-iface[5].ssid",
-    "uci get wireless.mld3.mld_ssid",
-]
-CASE10_KEY_UCI_CMDS = [
-    "uci get wireless.@wifi-iface[2].key",
-    "uci get wireless.@wifi-iface[2].sae_password",
-    "uci get wireless.@wifi-iface[5].key",
-    "uci get wireless.@wifi-iface[5].sae_password",
-]
-
-# --- Case 11: Guest WiFi VAP Index Validation ---
+# UCI commands – Case 11 Guest WiFi VAP index validation
 CASE11_GUEST_SSID_UCI_CMDS = [
     "uci get wireless.@wifi-iface[7].ssid",
     "uci get wireless.mld8.mld_ssid",
@@ -274,12 +322,41 @@ CASE11_GUEST_KEY_UCI_CMDS = [
     "uci get wireless.@wifi-iface[8].key",
 ]
 
-# --- Case 12: Wireless FH Interface State Check ---
-#   Returns 1 when wireless is OFF, 0 when ON.
-CASE12_FH_24G_DISABLED_CMD = "uci get wireless.@wifi-iface[2].disabled"
-CASE12_FH_5G_DISABLED_CMD  = "uci get wireless.@wifi-iface[5].disabled"
+# XPATH – Case 11 (Guest WiFi SSID / Key Modify)
+XPATH_GUEST_WIFI_TAB           = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/app-top-menu/nav/div/ul/li[10]/a"
+XPATH_GUEST_WIFI_ENABLE_TOGGLE = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-basic/form/div[2]/div[2]/div/div/div/app-label-toggle/div/div[2]/div"
+XPATH_GUEST_WIFI_SSID_INPUT    = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-basic/form/div[2]/div[8]/app-label-input/div/div[2]/input"
+XPATH_GUEST_WIFI_KEY_INPUT     = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-basic/form/div[3]/div[8]/div/div/div/input"
+XPATH_GUEST_WIFI_APPLY_BTN     = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-basic/form/div[5]/div/button[2]"
+XPATH_GUEST_WIFI_DISCARD_YES   = "/html/body/ngb-modal-window/div/div/app-modal-discard-changes/div[3]/div/button[2]"
 
-# --- Case 13: BH Random SSID Lost Connect Check ------------------------------
+# =============================================================================
+# CASE 12 – TSM4 Wireless FH Disable / Enable Sync Check
+# =============================================================================
+CASE12_ETH_BH_INIT_WAIT     = 20
+CASE12_WIFI_BH_INIT_WAIT    = 240
+CASE12_WIRELESS_SYNC_WAIT   = 300
+CASE12_ENABLE_RECOVERY_WAIT = 60
+CASE12_FINAL_ENABLE_WAIT    = 10
+
+CASE12_GUI_MAX_ATTEMPTS     = 2
+CASE12_GUI_RETRY_WAIT       = 30
+
+CASE12_FH_24G_DISABLED_CMD  = "uci get wireless.@wifi-iface[2].disabled"
+CASE12_FH_5G_DISABLED_CMD   = "uci get wireless.@wifi-iface[5].disabled"
+
+# WiFi_inf_ChOnOff active beacon check
+CASE12_WIFI_INF_CHECK_ENABLE = True
+CASE12_WIFI_INF_CHONOFF_CMD = "WiFi_inf_ChOnOff.sh"
+CASE12_WIFI_INF_TARGET_INDEXES = ["2", "5"]
+
+# XPATH – CASE 12  (TSM4 Wireless FH Disable / Enable Sync Check)
+CASE12_XPATH_WIRELESS_ENABLE_TOGGLE = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-basic/form/div[2]/div[2]/div/div/div/app-label-toggle/div/div[2]/div"
+CASE12_XPATH_WIFI_BASIC_APPLY       = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-basic/form/div[4]/div/button[2]"
+
+# =============================================================================
+# CASE 13 – BH Random SSID Lost Connect Check
+# =============================================================================
 CASE13_ETH_ONBOARDING_INIT_WAIT_TIME = 20
 CASE13_MAX_TOTAL_LIMIT = NORMAL_MAX_TOTAL_LIMIT
 CASE13_ONBOARDING_THRESHOLD = ONBOARDING_THRESHOLD
@@ -294,7 +371,9 @@ CASE13_ARC_FH_RANDOM_SSID_CMD = "uci get wireless.@wifi-iface[4].ArcFHRandomSSID
 CASE13_BH_SSID_CMD = "uci get wireless.@wifi-iface[4].ssid"
 CASE13_UCI_CHECK_READ_TIME = 3
 
-# --- Case 14: TSM4 WPS Button + RE WPS Onboarding ----------------------------
+# =============================================================================
+# CASE 14 – TSM4 WPS Button + RE WPS Onboarding
+# =============================================================================
 CASE14_RE_FACTORY_DEFAULT_CMD = "factory_default"
 CASE14_RE_FACTORY_DEFAULT_POST_WAIT = 40
 CASE14_WIFI_BH_PRE_WPS_WAIT = 240
@@ -306,8 +385,15 @@ CASE14_MAX_TOTAL_LIMIT = NORMAL_MAX_TOTAL_LIMIT
 CASE14_ONBOARDING_THRESHOLD = ONBOARDING_THRESHOLD
 CASE14_WPS_BROWSER_CLOSE_WAIT = 5
 
+# XPATH – Case 14 (TSM4 WPS 5GHz Push Button)
+XPATH_WPS_TAB = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/app-top-menu/nav/div/ul/li[5]/a"
+XPATH_WPS_5G_TAB = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/app-top-menu/div[1]/nav/div/ul/li[2]/a"
+XPATH_WPS_5G_PUSH_BUTTON = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-wps/div/div/form/div[3]/div/div/div[1]/div/div/ol/li[2]/button/div"
+XPATH_WPS_5G_PUSH_BUTTON_FALLBACK = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-wps/div/div/form/div[3]/div/div/div[1]/div/div/ol/li[2]"
+XPATH_DISCARD_CHANGES_YES = "/html/body/ngb-modal-window/div/div/app-modal-discard-changes/div[3]/div/button[2]"
+
 # =============================================================================
-# FAIL DIAGNOSTIC & RECOVERY
+# FAIL DIAGNOSTIC & RECOVERY (cross-case, shared)
 # =============================================================================
 # check_RE_status.py – runs on FAIL to capture RE state before recovery.
 CHECK_RE_STATUS_ENABLE       = True
@@ -341,68 +427,16 @@ FAIL_RECOVERY_REASON_SUFFIX = "FailDiagnostic(check_RE_status_collect_diag_resto
 
 TSM4_REBOOT_MONITOR_TIME = 300  # Max monitor time after TSM4 recovery reboot (s)
 
-
 # =============================================================================
-# XPATH – SHARED
+# WIFI BH TCPDUMP DEBUG (cross-case, shared)
 # =============================================================================
-# Login page
-XPATH_LOGIN_USER = "/html/body/app-root/app-login/div/header/div[2]/form/div/div[1]/input"
-XPATH_LOGIN_PASS = "/html/body/app-root/app-login/div/header/div[2]/form/div/div[2]/input"
-
-# FW version label on login screen
-XPATH_ROUTER_FW  = "/html/body/app-root/app-login/div/main/div[1]/div[1]/div[1]/span[2]"
-
-# Top nav quick-links
-XPATH_WIFI_SETTINGS = "/html/body/app-root/app-main-base/div/app-header/nav/div/div[2]/app-quick-links/div/div[3]/div/div/a/p"
-XPATH_SETTINGS      = "/html/body/app-root/app-main-base/div/app-header/nav/div/div[2]/app-quick-links/div/div[4]/div/div/a/p"
-
-# WiFi sub-tabs
-XPATH_WIFI_MESH     = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/app-top-menu/nav/div/ul/li[4]/a"
-XPATH_WIFI_BOOSTERS = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/app-top-menu/div[1]/nav/div/ul/li[2]/a"
-
-# Modal dialogs
-XPATH_CONFIRM_YES       = "/html/body/ngb-modal-window/div/div/app-generic-modal/div[3]/button[2]"
-XPATH_DISCARD_CLOSE_BTN = "/html/body/ngb-modal-window/div/div/app-modal-discard-changes/div[3]/div/button[2]"
-
-# WiFi Basic page – used by Case 10, 11, 12
-XPATH_WIRELESS_ENABLE_TOGGLE = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-basic/form/div[2]/div[2]/div/div/div/app-label-toggle/div/div[2]/div"
-XPATH_WIFI_BASIC_APPLY       = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-basic/form/div[4]/div/button[2]"
-
-# =============================================================================
-# XPATH – CASE 5  (Settings → Maintenance → Restart)
-# =============================================================================
-XPATH_MAINTENANCE  = "/html/body/app-root/app-main-base/div/div/main/app-mybox-main/div/div/app-top-menu/nav/div/ul/li[8]/a"
-XPATH_TSM4_RESTART = "/html/body/app-root/app-main-base/div/div/main/app-mybox-main/div/div/app-maintenace-main/div/div/app-maintenance-resets/form/div/div[1]/div[2]/button"
-
-# =============================================================================
-# XPATH – CASE 6 / 7 / 8 / 9  (Mesh extender reboot / reset buttons)
-# =============================================================================
-XPATH_REBOOT_ALL = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-mesh/div/app-wifi-mesh-extenders/div/div/div[1]/button[1]"
-XPATH_RESET_ALL  = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-mesh/div/app-wifi-mesh-extenders/div/div/div[1]/button[2]"
-XPATH_REBOOT_RE  = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-mesh/div/app-wifi-mesh-extenders/div/div/div[1]/button[3]"
-XPATH_RESET_RE   = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-mesh/div/app-wifi-mesh-extenders/div/div/div[1]/button[4]"
-
-# =============================================================================
-# XPATH – CASE 10  (Main WiFi SSID / Key Modify)
-# =============================================================================
-XPATH_MAIN_WIFI_SSID_INPUT = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-basic/form/div[2]/div[8]/app-label-input/div/div[2]/input"
-XPATH_MAIN_WIFI_KEY_INPUT  = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-basic/form/div[3]/div[8]/div/div/div/input"
-
-# =============================================================================
-# XPATH – CASE 11  (Guest WiFi SSID / Key Modify)
-# =============================================================================
-XPATH_GUEST_WIFI_TAB           = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/app-top-menu/nav/div/ul/li[10]/a"
-XPATH_GUEST_WIFI_ENABLE_TOGGLE = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-basic/form/div[2]/div[2]/div/div/div/app-label-toggle/div/div[2]/div"
-XPATH_GUEST_WIFI_SSID_INPUT    = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-basic/form/div[2]/div[8]/app-label-input/div/div[2]/input"
-XPATH_GUEST_WIFI_KEY_INPUT     = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-basic/form/div[3]/div[8]/div/div/div/input"
-XPATH_GUEST_WIFI_APPLY_BTN     = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-basic/form/div[5]/div/button[2]"
-XPATH_GUEST_WIFI_DISCARD_YES   = "/html/body/ngb-modal-window/div/div/app-modal-discard-changes/div[3]/div/button[2]"
-
-#=============================================================================
-# XPATH - CASE 14  (TSM4 WPS 5GHz Push Button)
-# =============================================================================
-XPATH_WPS_TAB = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/app-top-menu/nav/div/ul/li[5]/a"
-XPATH_WPS_5G_TAB = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/app-top-menu/div[1]/nav/div/ul/li[2]/a"
-XPATH_WPS_5G_PUSH_BUTTON = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-wps/div/div/form/div[3]/div/div/div[1]/div/div/ol/li[2]/button/div"
-XPATH_WPS_5G_PUSH_BUTTON_FALLBACK = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-wps/div/div/form/div[3]/div/div/div[1]/div/div/ol/li[2]"
-XPATH_DISCARD_CHANGES_YES = "/html/body/ngb-modal-window/div/div/app-modal-discard-changes/div[3]/div/button[2]"
+# Captures DHCP traffic on ath1 whenever any case switches to WiFi BH (relay off).
+# Hooked automatically via relay.py — no per-case code changes needed.
+#   On PASS: tcpdump killed + pcap deleted from RE (SSH).
+#   On FAIL: tcpdump killed (serial), pcap downloaded to RE_LOG_COLLECT_OUTPUT_DIR
+#            after ETH BH is restored and RE obtains a DHCP address.
+WIFI_BH_TCPDUMP_ENABLE             = False
+WIFI_BH_TCPDUMP_IFACE              = "ath1"
+WIFI_BH_TCPDUMP_REMOTE_PATH        = "/tmp/wifi_bh_dhcp.pcap"
+WIFI_BH_TCPDUMP_MAX_PACKETS        = 300   # -c limit; capture stops automatically
+WIFI_BH_TCPDUMP_POST_RECOVERY_WAIT = 25    # (s) wait after ETH BH restore for RE DHCP before SCP

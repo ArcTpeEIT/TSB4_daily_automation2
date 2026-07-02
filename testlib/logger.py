@@ -66,22 +66,34 @@ def init_summary_log(router_fw, booster_fw):
             f.write(f"{cfg.TEST_CASE_NAME}\n")
             f.write(f"Router Firmware Version : {router_fw}\n")
             f.write(f"Booster Firmware Version: {booster_fw}\n")
-            f.write("-" * 95 + "\n")
+            f.write("-" * 70 + "\n")
             f.write(
                 f"{'Time':<20} | {'Loop':<8} | {'Interface':<12} | "
-                f"{'Duration':<10} | {'Result':<8} | {'Fail_Reason'}\n"
+                f"{'Duration':<10} | {'Result':<8}\n"
             )
-            f.write("-" * 95 + "\n")
+            f.write("-" * 70 + "\n")
 
 
-def write_summary(loop_str, interface_name, duration, result, reason):
+def write_summary(loop_str, interface_name, duration, result, reason, status=""):
     ts = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
     line = (
         f"{ts:<20} | {loop_str:<8} | {interface_name:<12} | "
-        f"{duration:<10} | {result:<8} | {reason}\n"
+        f"{duration:<10} | {result:<8}\n"
     )
     with open(cfg.SUMMARY_LOG, "a", encoding="utf-8") as f:
         f.write(line)
+        if result == "FAIL" and reason and reason not in ("None", "N/A", ""):
+            if status:
+                # status format: "ETH BH Enable" / "WiFi BH Disable"
+                # → "Fail_Reason ( TSM4 WiFi radio: Enable, ETH BH )"
+                parts = status.rsplit(" ", 1)
+                if len(parts) == 2:
+                    ctx = f"TSM4 WiFi radio: {parts[1]}, {parts[0]}"
+                else:
+                    ctx = status
+                f.write(f"\nFail_Reason ( {ctx} )\n{reason}\n")
+            else:
+                f.write(f"\nFail_Reason: {reason}\n")
 
 
 def append_summary_block(text):

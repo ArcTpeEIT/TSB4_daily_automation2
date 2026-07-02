@@ -9,7 +9,8 @@ from .serial_console import receive_monitor
 
 
 GUI_RETRY_WAIT_TIME = 30
-GUI_MAX_ATTEMPTS = 2  # first try + one retry
+GUI_MAX_ATTEMPTS = 2        # attempts per phase (phase 1: normal retries; phase 2: after relay reboot)
+GUI_TOTAL_ATTEMPTS = GUI_MAX_ATTEMPTS * 2  # trigger_web_action: 2 normal + relay reboot TSM4 + 2 more
 
 
 def wait_loading_done(wait, timeout_note="loadingModal"):
@@ -120,15 +121,16 @@ def navigate_to_maintenance(driver):
     log_result("Web GUI: Maintenance page opened")
 
 
-def _create_attempt_driver(passed_driver, attempt_index, action_label):
+def _create_attempt_driver(passed_driver, attempt_index, action_label, total=None):
+    total = total or GUI_MAX_ATTEMPTS
     if attempt_index == 1 and passed_driver is not None:
-        log_step(f"Web GUI action: reuse existing Chrome session ({action_label}, attempt {attempt_index}/{GUI_MAX_ATTEMPTS})")
+        log_step(f"Web GUI action: reuse existing Chrome session ({action_label}, attempt {attempt_index}/{total})")
         return passed_driver
 
-    log_step(f"Web GUI action: create Chrome session ({action_label}, attempt {attempt_index}/{GUI_MAX_ATTEMPTS})")
+    log_step(f"Web GUI action: create Chrome session ({action_label}, attempt {attempt_index}/{total})")
     driver = create_chrome_driver()
     if driver is None:
-        log_result(f"Web GUI action FAIL: Chrome create failed ({action_label}, attempt {attempt_index}/{GUI_MAX_ATTEMPTS})")
+        log_result(f"Web GUI action FAIL: Chrome create failed ({action_label}, attempt {attempt_index}/{total})")
         log_progress(f"[Chrome] 建立失敗，無法執行 {action_label}")
     return driver
 
@@ -142,9 +144,10 @@ def _close_driver(driver):
         pass
 
 
-def _log_gui_exception(action_label, attempt_index, exc):
-    log_result(f"Web GUI action FAIL: {action_label}, attempt {attempt_index}/{GUI_MAX_ATTEMPTS}, reason={type(exc).__name__}: {exc}")
-    log_progress(f"Web GUI 操作發生異常 ({action_label}, attempt {attempt_index}/{GUI_MAX_ATTEMPTS}): {type(exc).__name__}: {exc}")
+def _log_gui_exception(action_label, attempt_index, exc, total=None):
+    total = total or GUI_MAX_ATTEMPTS
+    log_result(f"Web GUI action FAIL: {action_label}, attempt {attempt_index}/{total}, reason={type(exc).__name__}: {exc}")
+    log_progress(f"Web GUI 操作發生異常 ({action_label}, attempt {attempt_index}/{total}): {type(exc).__name__}: {exc}")
 
 
 def _wait_before_retry(action_label):
@@ -153,6 +156,22 @@ def _wait_before_retry(action_label):
     receive_monitor(GUI_RETRY_WAIT_TIME)
     log_step(f"Web GUI action retry start: {action_label}")
     log_progress(f"Web GUI retry 開始: {action_label}")
+
+
+def _relay_reboot_tsm4(action_label):
+    """Power-cycle TSM4 via relay (relay off → wait → relay on → boot wait)."""
+    from .relay import control_relay_channel
+    port = int(getattr(cfg, "TSM4_POWER_RELAY_PORT", 2))
+    off_wait = int(getattr(cfg, "TSM4_RELAY_REBOOT_OFF_WAIT", 8))
+    boot_wait = int(getattr(cfg, "TSM4_GUI_RELAY_BOOT_WAIT", 300))
+    log_step(f"Web GUI relay reboot TSM4: relay {port} off → {off_wait}s → relay {port} on → wait {boot_wait}s ({action_label})")
+    log_progress(f"[RELAY REBOOT] TSM4 GUI 連續失敗，透過 relay {port} 重開 TSM4...")
+    control_relay_channel(port, "off")
+    receive_monitor(off_wait)
+    control_relay_channel(port, "on")
+    log_progress(f"[RELAY REBOOT] TSM4 relay on，等待 {boot_wait}s 開機完成再繼續 GUI...")
+    receive_monitor(boot_wait)
+    log_result(f"[RELAY REBOOT] TSM4 relay reboot 完成，繼續 GUI retry ({action_label})")
 
 
 def trigger_tsm4_restart(passed_driver=None):
@@ -210,19 +229,25 @@ def trigger_tsm4_restart(passed_driver=None):
 def trigger_web_action(action_xpath, action_label, passed_driver=None):
     """Trigger a GUI action for Case6~Case9.
 
-    Workaround: if GUI navigation/action fails or Chrome crashes, wait 30 seconds
-    and retry once with a fresh Chrome session. No automatic screenshot is saved.
+    Flow:
+      - Attempt 1~2: normal GUI retries (30s wait between).
+      - If both fail: relay power-cycle TSM4 (relay off → 8s → relay on → wait 300s).
+      - Attempt 3~4: GUI retries with fresh Chrome after relay reboot.
     """
     import time
 
-    for attempt_index in range(1, GUI_MAX_ATTEMPTS + 1):
-        log_step(f"Web GUI action start: {action_label}, attempt {attempt_index}/{GUI_MAX_ATTEMPTS}")
-        driver = _create_attempt_driver(passed_driver, attempt_index, action_label)
+    for attempt_index in range(1, GUI_TOTAL_ATTEMPTS + 1):
+        # Between phase 1 and phase 2: relay reboot TSM4
+        if attempt_index == GUI_MAX_ATTEMPTS + 1:
+            _relay_reboot_tsm4(action_label)
+
+        log_step(f"Web GUI action start: {action_label}, attempt {attempt_index}/{GUI_TOTAL_ATTEMPTS}")
+        driver = _create_attempt_driver(passed_driver, attempt_index, action_label, total=GUI_TOTAL_ATTEMPTS)
         if driver is None:
-            if attempt_index < GUI_MAX_ATTEMPTS:
+            # No retry wait before relay reboot (attempt GUI_MAX_ATTEMPTS → next is relay)
+            if attempt_index < GUI_TOTAL_ATTEMPTS and attempt_index != GUI_MAX_ATTEMPTS:
                 _wait_before_retry(action_label)
-                continue
-            return False, None
+            continue
 
         wait = WebDriverWait(driver, cfg.WAIT_TIMEOUT)
         try:
@@ -242,16 +267,14 @@ def trigger_web_action(action_xpath, action_label, passed_driver=None):
             return True, action_start_time
 
         except Exception as e:
-            _log_gui_exception(action_label, attempt_index, e)
-            if attempt_index < GUI_MAX_ATTEMPTS:
+            _log_gui_exception(action_label, attempt_index, e, total=GUI_TOTAL_ATTEMPTS)
+            # No retry wait before relay reboot, and no wait after the last attempt
+            if attempt_index < GUI_TOTAL_ATTEMPTS and attempt_index != GUI_MAX_ATTEMPTS:
                 _wait_before_retry(action_label)
-            else:
-                log_result(f"Web GUI action FAIL: {action_label} exhausted retries")
-                return False, None
 
         finally:
             receive_monitor(3)
             _close_driver(driver)
 
-    log_result(f"Web GUI action FAIL: {action_label} exhausted retries")
+    log_result(f"Web GUI action FAIL: {action_label} exhausted all {GUI_TOTAL_ATTEMPTS} attempts")
     return False, None

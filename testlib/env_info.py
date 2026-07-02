@@ -1,7 +1,6 @@
 """Router/Booster firmware collection helpers."""
 import datetime
 import os
-import re
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -10,11 +9,7 @@ from selenium.webdriver.chrome.service import Service
 from . import config as cfg
 from .logger import log_progress, log_step, log_result
 from .serial_console import receive_monitor, get_serial_for_command, _SERIAL_IO_LOCK
-from .ssh_client import run_ssh_command
-
-
-ENV_IFCONFIG_BEGIN_MARKER = "__ARC_ENV_IFCONFIG_BEGIN__"
-ENV_IFCONFIG_END_MARKER = "__ARC_ENV_IFCONFIG_END__"
+from .ssh_client import run_ssh_command, discover_ssh_host_by_serial
 
 
 def create_chrome_driver():
@@ -97,98 +92,6 @@ def get_router_fw_version():
     return version if version else "Unknown_Router_FW", driver
 
 
-def _extract_between_markers(output, begin_marker, end_marker):
-    if not output:
-        return ""
-    text = output.replace("\r", "")
-    if begin_marker not in text or end_marker not in text:
-        return text
-    start = text.find(begin_marker) + len(begin_marker)
-    end = text.find(end_marker, start)
-    if end < 0:
-        return text[start:]
-    return text[start:end]
-
-
-def _is_valid_ipv4_host(ip):
-    try:
-        parts = [int(x) for x in str(ip).split(".")]
-    except Exception:
-        return False
-    if len(parts) != 4 or any(p < 0 or p > 255 for p in parts):
-        return False
-    # Filter network/broadcast-like addresses, e.g. 192.168.0.0 / 192.168.0.255.
-    if parts[-1] in (0, 255):
-        return False
-    return True
-
-
-def _parse_ipv4_from_ifconfig_inet(output):
-    body = _extract_between_markers(output, ENV_IFCONFIG_BEGIN_MARKER, ENV_IFCONFIG_END_MARKER)
-    patterns = [
-        r"\binet\s+addr:(\d+\.\d+\.\d+\.\d+)",
-        r"\binet\s+(\d+\.\d+\.\d+\.\d+)",
-    ]
-    for pattern in patterns:
-        for match in re.finditer(pattern, body or ""):
-            ip = match.group(1)
-            if ip.startswith(getattr(cfg, "ONBOARDING_SSH_IP_PREFIX", "192.168.0.")) and _is_valid_ipv4_host(ip):
-                return ip
-    return None
-
-
-def _discover_booster_ipv4_for_env():
-    """Discover Booster/RE br-lan IPv4 for environment FW collection.
-
-    This intentionally uses `ifconfig br-lan | grep -i inet` and logs only the
-    parsed IPv4 result. Raw ifconfig output is not expanded into PROGRESS lines.
-    """
-    if getattr(cfg, "ONBOARDING_SSH_HOST", None):
-        host = cfg.ONBOARDING_SSH_HOST
-        log_result(f"Booster br-lan IPv4: {host} (configured)")
-        return host
-
-    interface = getattr(cfg, "ONBOARDING_SSH_DISCOVER_INTERFACE", "br-lan")
-    read_time = int(getattr(cfg, "ONBOARDING_SSH_DISCOVER_READ_TIME", 8) or 8)
-    log_step(f"收集環境資訊: 透過 serial 取得 Booster {interface} IPv4")
-
-    ser = None
-    close_after_use = False
-    try:
-        ser, close_after_use = get_serial_for_command()
-        if ser is None:
-            log_result("Booster br-lan IPv4: Unknown (serial unavailable)")
-            return None
-
-        cmd = (
-            f"echo {ENV_IFCONFIG_BEGIN_MARKER}; "
-            f"ifconfig {interface} | grep -i inet; "
-            f"echo {ENV_IFCONFIG_END_MARKER}\n"
-        ).encode("utf-8")
-
-        with _SERIAL_IO_LOCK:
-            ser.write(cmd)
-            output = receive_monitor(read_time, ser)
-
-        ip = _parse_ipv4_from_ifconfig_inet(output)
-        if ip:
-            log_result(f"Booster br-lan IPv4: {ip}")
-            return ip
-
-        log_result(f"Booster br-lan IPv4: Unknown (no {getattr(cfg, 'ONBOARDING_SSH_IP_PREFIX', '192.168.0.')}x address)")
-        return None
-    except Exception as e:
-        log_result(f"Booster br-lan IPv4: Unknown ({type(e).__name__})")
-        log_progress(f"[環境資訊][SSH] serial discover IPv4 失敗: {type(e).__name__}: {e}")
-        return None
-    finally:
-        if close_after_use and ser is not None:
-            try:
-                ser.close()
-            except Exception:
-                pass
-
-
 def _parse_booster_fw_version(output):
     """Extract Booster firmware version from command output."""
     if not output:
@@ -247,7 +150,8 @@ def get_booster_fw_version():
 
     host = None
     try:
-        host = _discover_booster_ipv4_for_env()
+        log_step("收集環境資訊: 透過 serial 取得 Booster br-lan IPv4")
+        host = discover_ssh_host_by_serial(force=True, log_prefix="[ENV][SSH]")
         if host:
             ok, output, reason = run_ssh_command(
                 host,

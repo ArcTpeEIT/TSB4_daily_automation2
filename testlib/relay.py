@@ -27,15 +27,30 @@ def control_relay_channel(channel, state):
 
 
 def control_relay(state):
-    return control_relay_channel(cfg.RELAY_ETH_PORT, state)
+    ok = control_relay_channel(cfg.RELAY_ETH_PORT, state)
+    if ok and str(state).lower() == "off":
+        # WiFi BH switch succeeded – start tcpdump on ath1 if enabled
+        try:
+            from .tcpdump_debug import start_wifi_bh_tcpdump
+            start_wifi_bh_tcpdump()
+        except Exception as e:
+            log_progress(f"[TCPDUMP] start error (non-fatal): {type(e).__name__}: {e}")
+    return ok
 
 
 def restore_eth_backhaul(reason="case finished"):
+    # Stop tcpdump and clean up pcap before switching relay back to ETH BH.
+    # On PASS (RE has WiFi BH IP): SSH kill+rm.  On FAIL (no IP): serial kill only.
+    try:
+        from .tcpdump_debug import stop_and_cleanup_wifi_bh_tcpdump
+        stop_and_cleanup_wifi_bh_tcpdump()
+    except Exception as e:
+        log_progress(f"[TCPDUMP] stop+cleanup error (non-fatal): {type(e).__name__}: {e}")
     try:
         log_step(f"Restore ETH BH: reason={reason}, wait={cfg.RESTORE_ETH_BH_WAIT}s, relay {cfg.RELAY_ETH_PORT} on")
         log_progress(f"[RESTORE] {reason}: 等待 {cfg.RESTORE_ETH_BH_WAIT} 秒後切回 ETH BH - relay {cfg.RELAY_ETH_PORT} on")
         receive_monitor(cfg.RESTORE_ETH_BH_WAIT)
-        control_relay("on")
+        control_relay_channel(cfg.RELAY_ETH_PORT, "on")
         receive_monitor(cfg.RELAY_SETTLE_TIME)
         log_progress("[RESTORE] 已切回 ETH BH - relay 6 on")
         log_result("Restore ETH BH PASS")
@@ -52,10 +67,16 @@ def restore_eth_backhaul_between_loops(loop):
     """
     if loop >= cfg.TOTAL_LOOPS:
         return
+    # Stop tcpdump and clean up pcap before switching relay back to ETH BH
+    try:
+        from .tcpdump_debug import stop_and_cleanup_wifi_bh_tcpdump
+        stop_and_cleanup_wifi_bh_tcpdump()
+    except Exception as e:
+        log_progress(f"[TCPDUMP] stop+cleanup error (non-fatal): {type(e).__name__}: {e}")
     try:
         log_step(f"Loop {loop}: restore ETH BH for next loop, relay {cfg.RELAY_ETH_PORT} on")
         log_progress(f"LOOP {loop} WiFi BH PASS，切回 ETH BH 準備下一輪 - relay {cfg.RELAY_ETH_PORT} on")
-        control_relay("on")
+        control_relay_channel(cfg.RELAY_ETH_PORT, "on")
         log_step(f"Loop {loop} -> Loop {loop + 1}: ETH BH restore cooldown={cfg.LOOP_ETH_RESTORE_WAIT}s")
         log_progress(f"LOOP {loop} -> LOOP {loop + 1}: ETH BH restore cooldown = {cfg.LOOP_ETH_RESTORE_WAIT} 秒...")
         receive_monitor(cfg.LOOP_ETH_RESTORE_WAIT)

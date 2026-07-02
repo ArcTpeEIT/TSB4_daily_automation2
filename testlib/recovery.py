@@ -281,6 +281,14 @@ def run_re_log_collect_diagnostic(case_name="", check_status_text=""):
         "--timeout", str(getattr(cfg, "RE_LOG_COLLECT_SSH_TIMEOUT", 15)),
         "--run-timeout", str(getattr(cfg, "RE_LOG_COLLECT_RUN_TIMEOUT", 180)),
     ]
+    # If WiFi BH tcpdump debug is enabled, download the pcap in the same SSH session
+    try:
+        from .tcpdump_debug import _enabled as _tcpdump_enabled
+        if _tcpdump_enabled():
+            pcap_path = getattr(cfg, "WIFI_BH_TCPDUMP_REMOTE_PATH", "/tmp/wifi_bh_dhcp.pcap")
+            cmd.extend(["--tcpdump-pcap", pcap_path])
+    except Exception:
+        pass
 
     log_progress(f"[RE_LOG_COLLECT][CMD] {' '.join(cmd)}")
     try:
@@ -370,11 +378,19 @@ def reboot_tsm4_and_re():
     receive_monitor(reboot_wait)
     log_progress("RE reboot recovery wait 完成")
 
-def safe_handle_fail_recovery(case_name):
+def safe_handle_fail_recovery(case_name, restore_eth_bh=True):
     reboot_recovery_enabled = False
     check_status_text = ""
 
     log_step(f"Fail recovery start: {case_name}")
+
+    # Kill tcpdump first so the pcap file is complete before collect_diagnosticcomlog downloads it.
+    try:
+        from .tcpdump_debug import _enabled as _tcpdump_enabled, stop_for_download
+        if _tcpdump_enabled():
+            stop_for_download()
+    except Exception as e:
+        log_progress(f"[TCPDUMP] stop error (non-fatal): {type(e).__name__}: {e}")
 
     try:
         check_status_text = run_check_re_status_diagnostic(case_name=case_name)
@@ -400,9 +416,12 @@ def safe_handle_fail_recovery(case_name):
     except Exception as e:
         log_progress(f"FAIL recovery 發生異常，但後續仍會切回 ETH BH: {type(e).__name__}: {e}")
     finally:
-        log_step("Fail recovery: restore ETH BH")
-        if reboot_recovery_enabled:
-            restore_eth_backhaul("FAIL recovery 完成")
+        if restore_eth_bh:
+            log_step("Fail recovery: restore ETH BH")
+            if reboot_recovery_enabled:
+                restore_eth_backhaul("FAIL recovery 完成")
+            else:
+                restore_eth_backhaul("FAIL diagnostic 完成")
         else:
-            restore_eth_backhaul("FAIL diagnostic 完成")
+            log_step("Fail recovery: skip restore ETH BH (restore_eth_bh=False)")
         log_result(f"Fail recovery completed: {case_name}")
