@@ -20,10 +20,9 @@ Usage examples:
   python run_all_cases_like_github.py --only case1,case2 --loops 3
   python run_all_cases_like_github.py --loops 10   (override DEFAULT_LOOPS for ALL cases)
 
-Note: --loops overrides the loops value in each step's command, including any
-hardcoded values (e.g. case1's "--loops", "5"). Steps that have no --loops
-argument in their command (legacy scripts, collect, final_factory, etc.) are
-left unchanged.
+Note: --loops overrides the value after --loops in each step's command.
+Steps whose command does not contain --loops (collect, final_factory, etc.)
+are left unchanged.
 
 Edit build_steps() to insert/remove sleep or commands.
 """
@@ -65,10 +64,12 @@ FAIL_WORKAROUND_ENABLE = True
 FAIL_WORKAROUND_COMMAND = [sys.executable, "tsm4_gui_reboot_booster_fallback.py"]
 FAIL_WORKAROUND_WAIT = 300
 
-# Exact step keys that are allowed to trigger fail workaround.
-# Current factory-default onboarding test case is case1.
-# Do not add case7/case9/final_factory unless you explicitly want those failures
-# to reboot GW+Booster from the top-level runner.
+# Step keys that trigger GW+Booster reboot workaround on failure.
+# case1 = RE factory default onboarding
+# case7 = Reset Router + Boosters via TSM4 GUI
+# case9 = Reset Boosters via TSM4 GUI
+# All three involve factory-default/reset flows that may leave the system in a
+# broken state requiring a full reboot to recover.
 FAIL_WORKAROUND_CASE_KEYS = {"case1", "case7", "case9"}
 
 
@@ -91,30 +92,30 @@ def build_steps() -> list[Step]:
     loops_arg = ["--loops", str(DEFAULT_LOOPS)]
 
     selected_cases = [
-        Step("case1", "Case 1 Factory Default Onboarding", py("cases/case1_re_factory_default_modular.py", *loops_arg), 180),
+        Step("case1", "Case 1 Factory Default Onboarding", py("cases/case1_re_factory_default_modular.py", *loops_arg), 150),
         #Step("case1", "Case 1 Factory Default Onboarding", py("cases/case1_re_factory_default_modular.py", "--loops", "5"), 120),
-        Step("case2", "Case 2 Standard Onboarding", py("cases/case2_eth_wifi_onboarding_modular.py", *loops_arg), 180),
-        Step("case3", "Case 3 Warm Reboot Onboarding", py("cases/case3_re_warm_reboot_modular.py", *loops_arg), 180),
-        Step("case4", "Case 4 Cold Reboot Onboarding", py("cases/case4_re_cold_reboot_modular.py", *loops_arg), 180),
-        Step("case5", "Case 5 TSM4 GUI Reboot", py("cases/case5_tsm4_restart_modular.py", *loops_arg), 180),
-        Step("case6", "Case 6 Reboot Router + Boosters via TSM4 GUI", py("cases/case6_reboot_gw_re_modular.py", *loops_arg), 180),
-        Step("case7", "Case 7 Reset Router + Boosters via TSM4 GUI", py("cases/case7_reset_router_boosters_modular.py", *loops_arg), 180),
-        Step("case8", "Case 8 Reboot Boosters via TSM4 GUI", py("cases/case8_reboot_re_modular.py", *loops_arg), 180),
-        Step("case9", "Case 9 Reset Boosters via TSM4 GUI", py("cases/case9_reset_re_modular.py", *loops_arg), 180),
-        Step("case10", "Case 10 Main WiFi Random SSID/Key Sync", py("cases/case10_main_wifi_modify_ssid_key_sync_check_modular.py", *loops_arg), 180),
-        Step("case11", "Case 11 Guest WiFi Random SSID/Key Sync", py("cases/case11_guest_wifi_modify_ssid_key_sync_check_modular.py", *loops_arg), 180),
-        #Step("case12", "Case 12 TSM4 Wireless FH Disable/Enable Check", py("cases/case12_tsm4_wireless_fh_disable_enable_check_modular.py", *loops_arg), 180),
-        Step("case13", "Case 13 BH Random SSID Lost Connect Check", py("cases/case13_bh_random_ssid_lost_connect_check_modular.py", *loops_arg), 180),
-        Step("case14", "Case 14 TSM4 WPS + RE WPS Onboarding", py("cases/case14_tsm4_wps_button_re_wps_onboarding_modular.py", *loops_arg), 30),
+        Step("case2", "Case 2 Standard Onboarding", py("cases/case2_eth_wifi_onboarding_modular.py", *loops_arg), 150),
+        Step("case3", "Case 3 Warm Reboot Onboarding", py("cases/case3_re_warm_reboot_modular.py", *loops_arg), 150),
+        Step("case4", "Case 4 Cold Reboot Onboarding", py("cases/case4_re_cold_reboot_modular.py", *loops_arg), 150),
+        Step("case5", "Case 5 TSM4 GUI Reboot", py("cases/case5_tsm4_restart_modular.py", *loops_arg), 150),
+        Step("case6", "Case 6 Reboot Router + Boosters via TSM4 GUI", py("cases/case6_reboot_gw_re_modular.py", *loops_arg), 150),
+        Step("case7", "Case 7 Reset Router + Boosters via TSM4 GUI", py("cases/case7_reset_router_boosters_modular.py", *loops_arg), 150),
+        Step("case8", "Case 8 Reboot Boosters via TSM4 GUI", py("cases/case8_reboot_re_modular.py", *loops_arg), 150),
+        Step("case9", "Case 9 Reset Boosters via TSM4 GUI", py("cases/case9_reset_re_modular.py", *loops_arg), 150),
+        Step("case14", "Case 14 TSM4 WPS + RE WPS Onboarding", py("cases/case14_tsm4_wps_button_re_wps_onboarding_modular.py", *loops_arg), 150),
+        Step("case10", "Case 10 Main WiFi Random SSID/Key Sync", py("cases/case10_main_wifi_modify_ssid_key_sync_check_modular.py", *loops_arg), 150),
+        Step("case11", "Case 11 Guest WiFi Random SSID/Key Sync", py("cases/case11_guest_wifi_modify_ssid_key_sync_check_modular.py", *loops_arg), 150),
+        Step("case12", "Case 12 TSM4 Wireless FH Disable/Enable Check", py("cases/case12_tsm4_wireless_fh_disable_enable_sync_check_modular.py", *loops_arg), 150),
+        Step("case13", "Case 13 BH Random SSID Lost Connect Check", py("cases/case13_bh_random_ssid_lost_connect_check_modular.py", *loops_arg), 30),
     ]
 
     return [
         Step("initial_wait", "Initial wait", sleep_s=10),
         Step("fw_upgrade", "Firmware upgrade", py("Download_fw_then_upgrade.py"), 180, enabled=ENABLE_FW_UPGRADE),
         *selected_cases,
-        Step("collect", "Collect all log / diag then email", py("TSB4_collect_zip_upload_sftp_then_email_v8_clean_sftp_email.py"), 60),
-        Step("collect_bill", "Collect all log / diag then email", py("TSB4_collect_zip_upload_sftp_then_email_v8_clean_sftp_email_bill.py"), 60),
-        Step("final_factory", "Final TSM4 GUI Factory Default", py("tsm4_gui_factory_default_standalone.py"), 180),
+        #Step("collect", "Collect all log / diag then email (main)", py("TSB4_collect_zip_upload_sftp_then_email_v8_clean_sftp_email.py"), 30),
+        Step("collect_bill", "Collect all log / diag then email (bill)", py("TSB4_collect_zip_upload_sftp_then_email_v8_clean_sftp_email_bill.py"), 45),
+        Step("final_factory", "Final TSM4 GUI Factory Default", py("tsm4_gui_factory_default_standalone.py"), 150),
     ]
 
 
@@ -240,8 +241,9 @@ def filter_steps(steps: list[Step], start_from: Optional[str], only: Optional[st
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run TSB4 daily automation steps like GitHub Actions.")
     parser.add_argument("--dry-run", action="store_true", help="Print commands and sleeps without executing.")
-    parser.add_argument("--continue-on-fail", action="store_true", help="Continue next step if one command fails.")
-    parser.add_argument("--stop-on-fail", action="store_true", help="Stop immediately if one command fails.")
+    fail_group = parser.add_mutually_exclusive_group()
+    fail_group.add_argument("--continue-on-fail", action="store_true", help="Continue next step if one command fails.")
+    fail_group.add_argument("--stop-on-fail", action="store_true", help="Stop immediately if one command fails.")
     parser.add_argument("--start-from", help="Start from a step key, e.g. case5, case10, collect.")
     parser.add_argument("--only", help="Run only selected step keys, comma separated, e.g. case7 or case1,case2.")
     parser.add_argument(

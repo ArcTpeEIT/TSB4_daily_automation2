@@ -399,6 +399,23 @@ def js_set_input_value(driver: webdriver.Chrome, element, text: str) -> None:
     )
 
 
+def _wait_login_form_gone(driver: webdriver.Chrome, timeout: float = 20.0) -> None:
+    """Poll until the login form input disappears from DOM after submit.
+
+    Angular SPA routing keeps the login component mounted briefly while
+    transitioning to the home route.  A fixed sleep races against this;
+    polling for DOM removal is deterministic.
+    """
+    log(f"等待 login form 從 DOM 移除 (Angular routing)，timeout={timeout}s")
+    end_time = time.time() + timeout
+    while time.time() < end_time:
+        if not element_exists(driver, By.XPATH, XPATH_LOGIN_USER, timeout=0.3):
+            gui_sleep(1.0)  # small buffer for home page widgets to render
+            return
+        gui_sleep(0.5)
+    log("警告: login form 在 timeout 內未從 DOM 移除，嘗試繼續...")
+
+
 def try_login_if_needed(driver: webdriver.Chrome, wait: WebDriverWait, url: str, username: str, password: str) -> None:
     driver.get(url)
     gui_sleep(2)
@@ -426,7 +443,10 @@ def try_login_if_needed(driver: webdriver.Chrome, wait: WebDriverWait, url: str,
     submit_btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button[type='submit']")))
     _js_click(driver, submit_btn)
     wait_loading_done(driver, timeout=15)
-    gui_sleep(2)
+
+    # Wait for Angular to unmount login form before checking success.
+    # Replacing fixed gui_sleep(2) which raced against Angular route transition.
+    _wait_login_form_gone(driver, timeout=20)
 
     check_login_success(driver)
     log("Web GUI login PASS")
@@ -444,10 +464,9 @@ def navigate_to_maintenance(driver: webdriver.Chrome, wait: WebDriverWait, url: 
     wait_loading_done(driver, timeout=15)
 
 
-def run_factory_default(args: argparse.Namespace) -> bool:
+def _run_factory_default_once(args: argparse.Namespace) -> bool:
     driver = None
     try:
-        log_separator("TSM4 GUI Factory Default Start")
         driver = create_chrome_driver(args.chromedriver, args.headless)
         wait = WebDriverWait(driver, args.wait_timeout)
 
@@ -476,7 +495,6 @@ def run_factory_default(args: argparse.Namespace) -> bool:
             log(f"等待 {args.close_wait} 秒後關閉 Chrome...")
             gui_sleep(args.close_wait)
 
-        log_separator("TSM4 GUI Factory Default Done")
         return True
 
     except Exception as e:
@@ -494,6 +512,26 @@ def run_factory_default(args: argparse.Namespace) -> bool:
                 log("Chrome 已關閉")
             except Exception:
                 pass
+
+
+def run_factory_default(args: argparse.Namespace) -> bool:
+    max_attempts = args.max_retries + 1
+    for attempt in range(1, max_attempts + 1):
+        if attempt > 1:
+            log(f"[RETRY] 第 {attempt}/{max_attempts} 次嘗試 (等待 {args.retry_delay}s)...")
+            gui_sleep(args.retry_delay)
+
+        log_separator(f"TSM4 GUI Factory Default Start (attempt {attempt}/{max_attempts})")
+        ok = _run_factory_default_once(args)
+        if ok:
+            log_separator("TSM4 GUI Factory Default Done")
+            return True
+
+        if attempt < max_attempts:
+            log(f"[RETRY] 第 {attempt} 次失敗，準備重試...")
+
+    log(f"[RETRY] 所有 {max_attempts} 次嘗試均失敗")
+    return False
 
 
 def parse_args() -> argparse.Namespace:
@@ -520,6 +558,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--verify-up-timeout", type=int, default=240, help="Seconds to wait for Web GUI to become reachable again after Factory Default")
     parser.add_argument("--verify-interval", type=float, default=5, help="Polling interval seconds for reset verification")
     parser.add_argument("--post-confirm-wait", type=float, default=0, help="Extra seconds to wait after completion verification before closing Chrome")
+
+    parser.add_argument("--max-retries", type=int, default=1, help="Maximum retry attempts on failure (default 1 = one retry on fail)")
+    parser.add_argument("--retry-delay", type=float, default=15, help="Seconds to wait between retry attempts")
 
     # GitHub Actions should run headless by default. Local manual execution keeps GUI visible.
     headless_default = os.environ.get("GITHUB_ACTIONS", "").lower() == "true"

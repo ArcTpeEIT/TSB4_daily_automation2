@@ -53,7 +53,11 @@ def send_email(subject, body, attachments=None):
     # receiver = 'bill_chen@arcadyan.com'
     receivers = [
     'bill_chen@arcadyan.com',
-    'yungyi680120@gmail.com',     
+    #'jh_yen@arcadyan.com',
+    #'zach_chu@arcadyan.com',
+    #'chocho_chen@arcadyan.com',
+    #'dennis_chiang@arcadyan.com',
+    #'quantum_wu@arcadyan.com',    
     ]
     app_password = 'apthsnwksezkwtbo'
 
@@ -313,12 +317,17 @@ def main():
         if os.path.isfile(fw_log)
     ))
 
-    collected_logs = unique_existing_files(summary_files + console_files + diagnostic_files + fw_upgrade_files)
+    tsm4_gui_files = sorted(set(
+        glob.glob("*_tsm4_gui_factory_default.log") +
+        glob.glob("*_tsm4_gui_reboot_booster.log")
+    ))
+
+    collected_logs = unique_existing_files(summary_files + console_files + diagnostic_files + fw_upgrade_files + tsm4_gui_files)
 
     log_result(
         f"Final collect: found Summary={len(summary_files)}, "
         f"Console={len(console_files)}, diagnostic={len(diagnostic_files)}, "
-        f"fw_upgrade_log={len(fw_upgrade_files)}"
+        f"fw_upgrade_log={len(fw_upgrade_files)}, tsm4_gui_log={len(tsm4_gui_files)}"
     )
 
     if not collected_logs:
@@ -403,6 +412,7 @@ def main():
             f" Console Logs: {len(console_files)}\n"
             f" Diagnostic Files: {len(diagnostic_files)}\n"
             f" FW Upgrade Logs: {len(fw_upgrade_files)}\n"
+            f" TSM4 GUI Logs: {len(tsm4_gui_files)}\n"
         )
         if has_summary:
             outfile.write(
@@ -443,6 +453,12 @@ def main():
             outfile.write("[ FW Upgrade Logs Included in ZIP ]\n")
             for fw_log in fw_upgrade_files:
                 outfile.write(f"  - {os.path.basename(fw_log)}\n")
+            outfile.write("\n")
+
+        if tsm4_gui_files:
+            outfile.write("[ TSM4 GUI Logs Included in ZIP ]\n")
+            for gui_log in tsm4_gui_files:
+                outfile.write(f"  - {os.path.basename(gui_log)}\n")
             outfile.write("\n")
 
         if critical_issues:
@@ -505,6 +521,7 @@ def main():
     console_highlight = email_file_list(console_files)
     diag_highlight = email_file_list(diagnostic_files)
     fw_upgrade_highlight = email_file_list(fw_upgrade_files)
+    tsm4_gui_highlight = email_file_list(tsm4_gui_files)
     sftp_uploaded_text = "\n".join(f"  - {p}" for p in uploaded_paths) if uploaded_paths else "None"
 
     if has_summary:
@@ -537,10 +554,13 @@ Please download the ZIP report from the following SFTP path:
 [ FW Upgrade Logs Included in ZIP ]
 {fw_upgrade_highlight}
 
+[ TSM4 GUI Logs Included in ZIP ]
+{tsm4_gui_highlight}
+
 [ SFTP Upload ]
 Status: {'PASS' if sftp_ok else 'FAIL'}
 
-All available Summary, Console, FW upgrade, and diagnostic files are included in the ZIP file.
+All available Summary, Console, FW upgrade, diagnostic, and TSM4 GUI log files are included in the ZIP file.
 """
 
     email_attachments = [] if sftp_ok else [all_summary_name]

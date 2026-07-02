@@ -50,7 +50,6 @@ def send_email(subject, body, attachments=None):
     'chocho_chen@arcadyan.com',
     'dennis_chiang@arcadyan.com',
     'quantum_wu@arcadyan.com',    
-    'yungyi680120@gmail.com',     
     ]
     app_password = 'apthsnwksezkwtbo'
 
@@ -224,7 +223,12 @@ def main():
         glob.glob(os.path.join("RE_fail_logs", "**", "*diagnosticcomlog.tgz"), recursive=True)
     ))
 
-    log_result(f"Final collect: found Summary={len(summary_files)}, Console={len(console_files)}, diagnostic={len(diagnostic_files)}")
+    tsm4_gui_files = sorted(set(
+        glob.glob("*_tsm4_gui_factory_default.log") +
+        glob.glob("*_tsm4_gui_reboot_booster.log")
+    ))
+
+    log_result(f"Final collect: found Summary={len(summary_files)}, Console={len(console_files)}, diagnostic={len(diagnostic_files)}, tsm4_gui_log={len(tsm4_gui_files)}")
 
     if not summary_files:
         log_result("Final collect FAIL: no Summary.log files found")
@@ -307,6 +311,12 @@ def main():
                 outfile.write(f"  - {os.path.basename(diag_f)}\n")
             outfile.write("\n")
 
+        if tsm4_gui_files:
+            outfile.write("[ TSM4 GUI Logs Included in ZIP ]\n")
+            for gui_log in tsm4_gui_files:
+                outfile.write(f"  - {os.path.basename(gui_log)}\n")
+            outfile.write("\n")
+
         if critical_issues:
             outfile.write("[ CRITICAL ISSUES FOUND ]\n")
             for issue in critical_issues:
@@ -322,7 +332,7 @@ def main():
 
     log_result(f"Final collect: all-case summary generated, pass={pass_count}, fail={fail_count}")
     log_step(f"Final collect: create ZIP report {zip_name}")
-    files_to_zip = [all_summary_name] + summary_files + console_files + diagnostic_files
+    files_to_zip = [all_summary_name] + summary_files + console_files + diagnostic_files + tsm4_gui_files
 
     with zipfile.ZipFile(zip_name, "w", zipfile.ZIP_DEFLATED) as zf:
         for log_f in files_to_zip:
@@ -356,6 +366,7 @@ def main():
         diagnostic_summary_block = ""
 
     diag_highlight = "\n".join(f"  - {os.path.basename(f)}" for f in diagnostic_files) if diagnostic_files else "None"
+    tsm4_gui_highlight = "\n".join(f"  - {os.path.basename(f)}" for f in tsm4_gui_files) if tsm4_gui_files else "None"
     sftp_uploaded_text = "\n".join(f"  - {p}" for p in uploaded_paths) if uploaded_paths else "None"
 
     subject = f"[{status}] TSB4 Automation Test Report - {fw_version} - {now_str}"
@@ -374,10 +385,13 @@ Please download the ZIP report from the following SFTP path:
 [ Diagnostic Files Included in ZIP ]
 {diag_highlight}
 
+[ TSM4 GUI Logs Included in ZIP ]
+{tsm4_gui_highlight}
+
 [ SFTP Upload ]
 Status: {'PASS' if sftp_ok else 'FAIL'}
 
-All case logs and diagnostic files are included in the ZIP file.
+All case logs, diagnostic, and TSM4 GUI log files are included in the ZIP file.
 """
 
     email_attachments = [] if sftp_ok else [all_summary_name]
@@ -385,7 +399,7 @@ All case logs and diagnostic files are included in the ZIP file.
 
     log_step("Final collect: cleanup original Summary/Console/diagnostic files")
     # 只清理工作目錄下的原始個別檔案；保留 target_folder 內的 all_summary 與 zip。
-    for f in summary_files + console_files + diagnostic_files:
+    for f in summary_files + console_files + diagnostic_files + tsm4_gui_files:
         try:
             os.remove(f)
         except Exception:
