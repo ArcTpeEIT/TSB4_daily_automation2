@@ -231,7 +231,7 @@ CASE9_MAX_TOTAL_LIMIT                = RESET_MAX_TOTAL_LIMIT
 # =============================================================================
 # Monitor time for RE sync after GUI Apply.
 CASE10_ETH_AFTER_GUI_APPLY_MONITOR_TIME  = 120
-CASE10_WIFI_AFTER_GUI_APPLY_MONITOR_TIME = 240
+CASE10_WIFI_AFTER_GUI_APPLY_MONITOR_TIME = 180
 
 # Random profile for Case10
 CASE10_ETH_SSID_PREFIX = "ETHSYNC"
@@ -241,6 +241,11 @@ CASE10_SSID_RANDOM_LEN = 8
 CASE10_WIFI_KEY_RANDOM_LEN = 14
 CASE10_SPECIAL_CHARS = ""
 CASE10_KEY_SPECIAL_CHARS = "!@#%^&*_-+=?"
+
+# Pre-GUI wait for WiFi BH stage: let RE establish WiFi BH and get DHCP before changing SSID.
+# In normal use, the RE is already connected when the user changes SSID.
+# Without this wait, the SSID change happens before RE gets DHCP, causing DHCP failure.
+CASE10_WIFI_BH_PRE_GUI_WAIT = 60
 
 # GUI wait for Case10
 CASE10_WIFI_PAGE_WAIT = 10
@@ -273,7 +278,7 @@ XPATH_MAIN_WIFI_KEY_INPUT  = "/html/body/app-root/app-main-base/div/div/main/app
 # =============================================================================
 # Monitor time for RE sync after GUI Apply.
 CASE11_ETH_AFTER_GUI_APPLY_MONITOR_TIME  = 120
-CASE11_WIFI_AFTER_GUI_APPLY_MONITOR_TIME = 240
+CASE11_WIFI_AFTER_GUI_APPLY_MONITOR_TIME = 200
 
 # Random profile for Case11
 CASE11_ETH_GUEST_SSID_PREFIX  = "ETHGUEST"
@@ -283,6 +288,9 @@ CASE11_SSID_RANDOM_LEN        = 8
 CASE11_WIFI_KEY_RANDOM_LEN    = 14
 CASE11_SPECIAL_CHARS          = ""
 CASE11_KEY_SPECIAL_CHARS      = "!@#%^&*_-+=?"
+
+# Pre-GUI wait for WiFi BH stage: let RE establish WiFi BH and get DHCP before changing SSID.
+CASE11_WIFI_BH_PRE_GUI_WAIT = 70
 
 # GUI wait for Case11
 CASE11_GUI_OPEN_WAIT = 2
