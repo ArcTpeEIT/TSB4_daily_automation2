@@ -113,8 +113,8 @@ def build_steps() -> list[Step]:
         Step("initial_wait", "Initial wait", sleep_s=10),
         Step("fw_upgrade", "Firmware upgrade", py("Download_fw_then_upgrade.py"), 180, enabled=ENABLE_FW_UPGRADE),
         *selected_cases,
-        #Step("collect", "Collect all log / diag then email (main)", py("TSB4_collect_zip_upload_sftp_then_email_v8_clean_sftp_email.py"), 30),
-        Step("collect_bill", "Collect all log / diag then email (bill)", py("TSB4_collect_zip_upload_sftp_then_email_v8_clean_sftp_email_bill.py"), 45),
+        Step("collect", "Collect all log / diag then email (main)", py("TSB4_collect_zip_upload_sftp_then_email_v8_clean_sftp_email.py"), 30),
+        #Step("collect_bill", "Collect all log / diag then email (bill)", py("TSB4_collect_zip_upload_sftp_then_email_v8_clean_sftp_email_bill.py"), 45),
         Step("final_factory", "Final TSM4 GUI Factory Default", py("tsm4_gui_factory_default_standalone.py"), 150),
     ]
 
