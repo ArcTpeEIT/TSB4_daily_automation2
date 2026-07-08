@@ -21,7 +21,10 @@ RE_COLD_POWER_RELAY_PORT = 1   # Relay channel: RE cold-reboot power (Case4)
 # =============================================================================
 GATEWAY_URL    = "http://192.168.0.1/"
 ROUTER_USERNAME = "admin"
-ROUTER_PASSWORD = "ngcvgds6fv"
+#ROUTER_PASSWORD = "ngcvgds6fv"
+#dennis tsm4
+ROUTER_PASSWORD = "jum8gf2zry"
+
 CHROME_DRIVER_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     "chromedriver.exe"
