@@ -13,10 +13,6 @@ from .ssh_client import run_ssh_command, discover_ssh_host_by_serial
 
 
 def create_chrome_driver():
-    if not os.path.exists(cfg.CHROME_DRIVER_PATH):
-        log_progress(f"[Chrome] 找不到 chromedriver.exe: {cfg.CHROME_DRIVER_PATH}")
-        return None
-
     options = webdriver.ChromeOptions()
     running_in_github = os.environ.get("GITHUB_ACTIONS", "").lower() == "true"
     if running_in_github:
@@ -30,8 +26,19 @@ def create_chrome_driver():
     options.add_argument("--no-first-run")
     options.add_argument("--no-default-browser-check")
 
-    log_progress(f"[Chrome] 使用 chromedriver: {cfg.CHROME_DRIVER_PATH}")
-    service = Service(executable_path=cfg.CHROME_DRIVER_PATH)
+    if os.path.exists(cfg.CHROME_DRIVER_PATH):
+        log_progress(f"[Chrome] 使用本地 chromedriver: {cfg.CHROME_DRIVER_PATH}")
+        service = Service(executable_path=cfg.CHROME_DRIVER_PATH)
+    else:
+        try:
+            from webdriver_manager.chrome import ChromeDriverManager
+            driver_path = ChromeDriverManager().install()
+            log_progress(f"[Chrome] 使用 webdriver-manager 下載: {driver_path}")
+            service = Service(executable_path=driver_path)
+        except Exception as e:
+            log_progress(f"[Chrome] webdriver-manager 失敗: {e}")
+            return None
+
     return webdriver.Chrome(service=service, options=options)
 
 
