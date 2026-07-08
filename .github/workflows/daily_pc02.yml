@@ -45,9 +45,9 @@ jobs:
         continue-on-error: true
         run: python run_all_cases_like_github.py --only case14
         
-      - name: 9. 執行測試 Case10, Case11, Case13
+      - name: 9. 執行測試 Case10, Case11, case12,Case13
         continue-on-error: true
-        run: python run_all_cases_like_github.py --only case10,case13
+        run: python run_all_cases_like_github.py --only case10,case11,case12,case13
 
       - name: 10. Collect All log 
         if: always()
