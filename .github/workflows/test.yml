@@ -16,9 +16,9 @@ jobs:
       - name: 等待 10 秒 
         run: Start-Sleep -s 10
 
-      - name: 8.1. 執行測試 Case2
-        continue-on-error: true
-        run: python run_all_cases_like_github.py --only case2
+      - name: 11. Final TSM4 GUI Factory Default
+        if: always()
+        run: python tsm4_gui_factory_default_standalone.py
         
 
 
