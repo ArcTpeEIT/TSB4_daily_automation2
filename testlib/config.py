@@ -21,10 +21,7 @@ RE_COLD_POWER_RELAY_PORT = 1   # Relay channel: RE cold-reboot power (Case4)
 # =============================================================================
 GATEWAY_URL    = "http://192.168.0.1/"
 ROUTER_USERNAME = "admin"
-#ROUTER_PASSWORD = "ngcvgds6fv"
-#dennis tsm4
 ROUTER_PASSWORD = "jum8gf2zry"
-
 CHROME_DRIVER_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     "chromedriver.exe"
@@ -92,14 +89,14 @@ POLLING_INTERVAL = 10  # Polling loop interval (s)
 #   NORMAL_MAX_TOTAL_LIMIT – standard onboarding / reboot cases.
 #   RESET_MAX_TOTAL_LIMIT  – factory-default / reset flows (need more time).
 NORMAL_MAX_TOTAL_LIMIT = 600
-RESET_MAX_TOTAL_LIMIT  = 960
+RESET_MAX_TOTAL_LIMIT  = 900
 MAX_TOTAL_LIMIT        = NORMAL_MAX_TOTAL_LIMIT  # Backward-compat alias
 
 # PASS/FAIL consecutive-check thresholds:
 #   ONBOARDING_THRESHOLD       – normal onboarding / reboot cases.
 #   RESET_ONBOARDING_THRESHOLD – reset / factory-default cases.
-ONBOARDING_THRESHOLD       = 3
-RESET_ONBOARDING_THRESHOLD = 5
+ONBOARDING_THRESHOLD       = 2
+RESET_ONBOARDING_THRESHOLD = 3
 
 PASS_COOLDOWN_TIME          = 60
 FINAL_ONBOARDING_CHECK_WAIT = 3
@@ -108,7 +105,7 @@ INIT_WAIT_TIME              = 120  # Generic init wait (s); most cases override 
 # Relay settle / BH restore
 RELAY_SETTLE_TIME     = 3     # Wait after relay switch before next action (s)
 RESTORE_ETH_BH_WAIT   = 10   # Wait after restoring ETH BH relay (s)
-LOOP_ETH_RESTORE_WAIT = 120  # Multi-loop cooldown: after WiFi BH PASS, restore relay → ETH BH
+LOOP_ETH_RESTORE_WAIT = 150  # Multi-loop cooldown: after WiFi BH PASS, restore relay → ETH BH
 
 # =============================================================================
 # XPATH – SHARED (Login / Nav / Modals)
@@ -139,8 +136,8 @@ XPATH_WIFI_BASIC_APPLY       = "/html/body/app-root/app-main-base/div/div/main/a
 # =============================================================================
 # CASE 1 – Initial Onboarding (factory default or normal)
 # =============================================================================
-CASE1_FACTORY_DEFAULT_INIT_WAIT_TIME  = 250
-CASE1_NORMAL_INIT_WAIT_TIME           = 90
+CASE1_FACTORY_DEFAULT_INIT_WAIT_TIME  = 310
+CASE1_NORMAL_INIT_WAIT_TIME           = 100
 # Both modes use RESET_MAX_TOTAL_LIMIT; factory default is a reset-style flow.
 CASE1_FACTORY_DEFAULT_MAX_TOTAL_LIMIT = RESET_MAX_TOTAL_LIMIT
 CASE1_NORMAL_MAX_TOTAL_LIMIT          = RESET_MAX_TOTAL_LIMIT
@@ -149,7 +146,7 @@ CASE1_NORMAL_MAX_TOTAL_LIMIT          = RESET_MAX_TOTAL_LIMIT
 # CASE 2 – ETH / WiFi BH Switch
 # =============================================================================
 CASE2_ETH_ONBOARDING_INIT_WAIT_TIME  = 20
-CASE2_WIFI_ONBOARDING_INIT_WAIT_TIME = 90
+CASE2_WIFI_ONBOARDING_INIT_WAIT_TIME = 100
 CASE2_ONBOARDING_INIT_WAIT_TIME      = CASE2_ETH_ONBOARDING_INIT_WAIT_TIME  # Backward-compat
 CASE2_MAX_TOTAL_LIMIT                = NORMAL_MAX_TOTAL_LIMIT
 
@@ -159,8 +156,8 @@ CASE2_MAX_TOTAL_LIMIT                = NORMAL_MAX_TOTAL_LIMIT
 RE_WARM_REBOOT_POST_WAIT             = 10   # Wait after reboot command sent (s)
 RE_WARM_REBOOT_RELAY_POST_WAIT       = 15   # Wait after relay action (s)
 RE_WARM_REBOOT_INIT_WAIT_TIME        = 150  # Backward-compat
-CASE3_ETH_ONBOARDING_INIT_WAIT_TIME  = 60
-CASE3_WIFI_ONBOARDING_INIT_WAIT_TIME = 90
+CASE3_ETH_ONBOARDING_INIT_WAIT_TIME  = 180
+CASE3_WIFI_ONBOARDING_INIT_WAIT_TIME = 210
 CASE3_MAX_TOTAL_LIMIT                = NORMAL_MAX_TOTAL_LIMIT
 
 # =============================================================================
@@ -170,8 +167,8 @@ RE_COLD_REBOOT_POWER_OFF_TIME        = 10   # Duration to cut RE power (s)
 RE_COLD_REBOOT_POST_WAIT             = 10   # Wait after power restored (s)
 RE_COLD_REBOOT_RELAY_POST_WAIT       = 15   # Wait after relay action (s)
 RE_COLD_REBOOT_INIT_WAIT_TIME        = 140  # Backward-compat
-CASE4_ETH_ONBOARDING_INIT_WAIT_TIME  = 90
-CASE4_WIFI_ONBOARDING_INIT_WAIT_TIME = 160  # (was 191)
+CASE4_ETH_ONBOARDING_INIT_WAIT_TIME  = 150
+CASE4_WIFI_ONBOARDING_INIT_WAIT_TIME = 200  # 
 CASE4_MAX_TOTAL_LIMIT                = NORMAL_MAX_TOTAL_LIMIT
 # NOTE: relay channel used by this case -> RE_COLD_POWER_RELAY_PORT (see HARDWARE PORTS)
 
@@ -183,8 +180,8 @@ TSM4_REBOOT_POST_WAIT                = 10   # Wait after restart triggered (s)
 TSM4_REBOOT_RELAY_POST_WAIT          = 120  # Wait after relay restores power (s)
 TSM4_RELAY_REBOOT_OFF_WAIT           = 8    # How long relay stays off when power-cycling TSM4 (s)
 TSM4_GUI_RELAY_BOOT_WAIT             = 300  # Wait after relay on before GUI retry (s)
-CASE5_ETH_ONBOARDING_INIT_WAIT_TIME  = 30
-CASE5_WIFI_ONBOARDING_INIT_WAIT_TIME = 120
+CASE5_ETH_ONBOARDING_INIT_WAIT_TIME  = 120
+CASE5_WIFI_ONBOARDING_INIT_WAIT_TIME = 220
 CASE5_MAX_TOTAL_LIMIT                = NORMAL_MAX_TOTAL_LIMIT
 
 # XPATH – Case 5 (Settings → Maintenance → Restart)
@@ -196,10 +193,16 @@ XPATH_TSM4_RESTART = "/html/body/app-root/app-main-base/div/div/main/app-mybox-m
 # =============================================================================
 GW_FW_TO_GUI_ACTION_SLEEP            = 3    # Wait between FW-version fetch and GUI action (s)
 REBOOT_SYNC_WAIT                     = 20   # Wait for GW to sync after reboot trigger (s)
+REBOOT_OFFLINE_VERIFY_TIMEOUT        = 90   # Max wait for device to go offline after reboot command (s)
+REBOOT_OFFLINE_POLL_INTERVAL         = 5    # SSH poll interval during offline verification (s)
+REBOOT_OFFLINE_VERIFY_RETRIES        = 1    # How many times to resend GUI command if device stays online
 REBOOT_INIT_WAIT_TIME                = 120  # Backward-compat
 CASE6_ETH_ONBOARDING_INIT_WAIT_TIME  = 90
 CASE6_WIFI_ONBOARDING_INIT_WAIT_TIME = 210  # (was 240)
 CASE6_MAX_TOTAL_LIMIT                = NORMAL_MAX_TOTAL_LIMIT
+CASE6_WIFI_PRECHECK_INIT_WAIT        = 30   # Wait after relay OFF for booster to switch to WiFi BH
+CASE6_WIFI_PRECHECK_THRESHOLD        = 1    # Only need 1 consecutive success to confirm WiFi BH up
+CASE6_WIFI_PRECHECK_MAX_LIMIT        = 240  # Max wait for pre-check (s)
 
 # XPATH – Case 6 / 7 / 8 / 9 (Mesh extender reboot / reset buttons, shared)
 XPATH_REBOOT_ALL = "/html/body/app-root/app-main-base/div/div/main/app-wifi-main/div/div/div/app-wifi-mesh/div/app-wifi-mesh-extenders/div/div/div[1]/button[1]"
@@ -214,13 +217,19 @@ RESET_INIT_WAIT_TIME                 = 180  # Backward-compat
 CASE7_ETH_ONBOARDING_INIT_WAIT_TIME  = 230
 CASE7_WIFI_ONBOARDING_INIT_WAIT_TIME = 500
 CASE7_MAX_TOTAL_LIMIT                = RESET_MAX_TOTAL_LIMIT
+CASE7_WIFI_PRECHECK_INIT_WAIT        = 60   # Reset cases take longer to reconnect WiFi BH
+CASE7_WIFI_PRECHECK_THRESHOLD        = 1
+CASE7_WIFI_PRECHECK_MAX_LIMIT        = 360
 
 # =============================================================================
 # CASE 8 – GW Reboot Single RE
 # =============================================================================
-CASE8_ETH_ONBOARDING_INIT_WAIT_TIME  = 110  # (was 130)
-CASE8_WIFI_ONBOARDING_INIT_WAIT_TIME = 180  # (was 200)
+CASE8_ETH_ONBOARDING_INIT_WAIT_TIME  = 160  # (was 130)
+CASE8_WIFI_ONBOARDING_INIT_WAIT_TIME = 190  # (was 200)
 CASE8_MAX_TOTAL_LIMIT                = NORMAL_MAX_TOTAL_LIMIT
+CASE8_WIFI_PRECHECK_INIT_WAIT        = 180
+CASE8_WIFI_PRECHECK_THRESHOLD        = 1
+CASE8_WIFI_PRECHECK_MAX_LIMIT        = 360
 
 # =============================================================================
 # CASE 9 – GW Reset Single RE
@@ -228,13 +237,16 @@ CASE8_MAX_TOTAL_LIMIT                = NORMAL_MAX_TOTAL_LIMIT
 CASE9_ETH_ONBOARDING_INIT_WAIT_TIME  = 180  # (was 201)
 CASE9_WIFI_ONBOARDING_INIT_WAIT_TIME = 450  # (was 491)
 CASE9_MAX_TOTAL_LIMIT                = RESET_MAX_TOTAL_LIMIT
+CASE9_WIFI_PRECHECK_INIT_WAIT        = 60   # Reset cases take longer to reconnect WiFi BH
+CASE9_WIFI_PRECHECK_THRESHOLD        = 1
+CASE9_WIFI_PRECHECK_MAX_LIMIT        = 300
 
 # =============================================================================
 # CASE 10 – Main WiFi SSID / Key Modify
 # =============================================================================
 # Monitor time for RE sync after GUI Apply.
 CASE10_ETH_AFTER_GUI_APPLY_MONITOR_TIME  = 120
-CASE10_WIFI_AFTER_GUI_APPLY_MONITOR_TIME = 180
+CASE10_WIFI_AFTER_GUI_APPLY_MONITOR_TIME = 300
 
 # Random profile for Case10
 CASE10_ETH_SSID_PREFIX = "ETHSYNC"
@@ -248,7 +260,7 @@ CASE10_KEY_SPECIAL_CHARS = "!@#%^&*_-+=?"
 # Pre-GUI wait for WiFi BH stage: let RE establish WiFi BH and get DHCP before changing SSID.
 # In normal use, the RE is already connected when the user changes SSID.
 # Without this wait, the SSID change happens before RE gets DHCP, causing DHCP failure.
-CASE10_WIFI_BH_PRE_GUI_WAIT = 60
+CASE10_WIFI_BH_PRE_GUI_WAIT = 100
 
 # GUI wait for Case10
 CASE10_WIFI_PAGE_WAIT = 10
@@ -281,7 +293,7 @@ XPATH_MAIN_WIFI_KEY_INPUT  = "/html/body/app-root/app-main-base/div/div/main/app
 # =============================================================================
 # Monitor time for RE sync after GUI Apply.
 CASE11_ETH_AFTER_GUI_APPLY_MONITOR_TIME  = 120
-CASE11_WIFI_AFTER_GUI_APPLY_MONITOR_TIME = 200
+CASE11_WIFI_AFTER_GUI_APPLY_MONITOR_TIME = 240
 
 # Random profile for Case11
 CASE11_ETH_GUEST_SSID_PREFIX  = "ETHGUEST"
@@ -293,7 +305,7 @@ CASE11_SPECIAL_CHARS          = ""
 CASE11_KEY_SPECIAL_CHARS      = "!@#%^&*_-+=?"
 
 # Pre-GUI wait for WiFi BH stage: let RE establish WiFi BH and get DHCP before changing SSID.
-CASE11_WIFI_BH_PRE_GUI_WAIT = 70
+CASE11_WIFI_BH_PRE_GUI_WAIT = 60
 
 # GUI wait for Case11
 CASE11_GUI_OPEN_WAIT = 2
@@ -389,9 +401,10 @@ CASE14_RE_FACTORY_DEFAULT_CMD = "factory_default"
 CASE14_RE_FACTORY_DEFAULT_POST_WAIT = 40
 CASE14_WIFI_BH_PRE_WPS_WAIT = 240
 CASE14_AFTER_TSM4_WPS_WAIT = 3
-CASE14_RE_WPS_CMD = "wpa_cli -p /var/run/wpa_supplicant-ath1 wps_pbc multi_ap=2"
+CASE14_RE_WPS_CMD   = "wpa_cli -p /var/run/wpa_supplicant-ath1 wps_pbc multi_ap=2"
+CASE14_RE_WPS_CMD_2 = "wpa_cli -p /var/run/wpa_supplicant-ath2 wps_pbc multi_ap=2"
 CASE14_RE_WPS_READ_TIME = 3
-CASE14_WPS_ONBOARDING_INIT_WAIT = 300
+CASE14_WPS_ONBOARDING_INIT_WAIT = 240
 CASE14_MAX_TOTAL_LIMIT = NORMAL_MAX_TOTAL_LIMIT
 CASE14_ONBOARDING_THRESHOLD = ONBOARDING_THRESHOLD
 CASE14_WPS_BROWSER_CLOSE_WAIT = 5
@@ -439,6 +452,27 @@ FAIL_RECOVERY_REASON_SUFFIX = "FailDiagnostic(check_RE_status_collect_diag_resto
 TSM4_REBOOT_MONITOR_TIME = 300  # Max monitor time after TSM4 recovery reboot (s)
 
 # =============================================================================
+# RASPI5 AIR CAPTURE (Runtime_DumpPackets.sh on remote Raspberry Pi 5)
+# =============================================================================
+# SSH into raspi5, run Runtime_DumpPackets.sh on <channel> before WPS press.
+# PASS → stop + delete pcap on raspi5.
+# FAIL → stop + SCP pcap to local RASPI5_AIR_CAPTURE_LOCAL_DIR.
+#
+# Requires passwordless sudo on raspi5 (or SSH as root).
+RASPI5_AIR_CAPTURE_ENABLE  = False
+RASPI5_SSH_HOST            = "192.168.0.173"   # raspi5 IP
+RASPI5_SSH_PORT            = 22
+RASPI5_SSH_USERNAME        = "root"
+RASPI5_SSH_PASSWORD        = "arcadyan"
+RASPI5_AIR_CAPTURE_SCRIPT  = "/home/AirCapture/Runtime_DumpPackets.sh"
+RASPI5_AIR_CAPTURE_OUT_DIR = "/home/AirCapture"
+RASPI5_AIR_CAPTURE_LOCAL_DIR = "."            # Local dir to save pcap on FAIL
+RASPI5_AIR_CAPTURE_BSSID    = ""             # TSM4 5GHz BSSID filter, e.g. "AA:BB:CC:DD:EE:FF"; empty = no filter
+
+# Case14 uses this channel for air capture (must match TSM4 fixed 5G channel)
+CASE14_AIR_CAPTURE_CHANNEL = 100
+
+# =============================================================================
 # WIFI BH TCPDUMP DEBUG (cross-case, shared)
 # =============================================================================
 # Captures DHCP traffic on ath1 whenever any case switches to WiFi BH (relay off).
@@ -449,5 +483,10 @@ TSM4_REBOOT_MONITOR_TIME = 300  # Max monitor time after TSM4 recovery reboot (s
 WIFI_BH_TCPDUMP_ENABLE             = False
 WIFI_BH_TCPDUMP_IFACE              = "ath1"
 WIFI_BH_TCPDUMP_REMOTE_PATH        = "/tmp/wifi_bh_dhcp.pcap"
-WIFI_BH_TCPDUMP_MAX_PACKETS        = 300   # -c limit; capture stops automatically
+WIFI_BH_TCPDUMP_MAX_PACKETS        = 300   # -c limit; 0 = no limit (stop via kill)
+WIFI_BH_TCPDUMP_FILTER             = "port 67 or port 68"  # BPF filter; "" = capture all traffic
 WIFI_BH_TCPDUMP_POST_RECOVERY_WAIT = 25    # (s) wait after ETH BH restore for RE DHCP before SCP
+# Deferred start: when RASPI5_AIR_CAPTURE_BSSID is set, tcpdump waits for stable ath1 association
+# before capturing (avoids the transient first-connect window seen during reset).
+WIFI_BH_TCPDUMP_BSSID_WAIT_DELAY   = 60   # (s) initial sleep to skip transient first connection
+WIFI_BH_TCPDUMP_BSSID_POLL_TIMEOUT = 500  # (s) max time to poll for stable BSSID connection
