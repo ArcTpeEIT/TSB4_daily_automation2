@@ -26,17 +26,18 @@ def create_chrome_driver():
     options.add_argument("--no-first-run")
     options.add_argument("--no-default-browser-check")
 
-    if os.path.exists(cfg.CHROME_DRIVER_PATH):
-        log_progress(f"[Chrome] 使用本地 chromedriver: {cfg.CHROME_DRIVER_PATH}")
-        service = Service(executable_path=cfg.CHROME_DRIVER_PATH)
-    else:
-        try:
-            from webdriver_manager.chrome import ChromeDriverManager
-            driver_path = ChromeDriverManager().install()
-            log_progress(f"[Chrome] 使用 webdriver-manager 下載: {driver_path}")
-            service = Service(executable_path=driver_path)
-        except Exception as e:
-            log_progress(f"[Chrome] webdriver-manager 失敗: {e}")
+    try:
+        from webdriver_manager.chrome import ChromeDriverManager
+        driver_path = ChromeDriverManager().install()
+        log_progress(f"[Chrome] 使用 webdriver-manager: {driver_path}")
+        service = Service(executable_path=driver_path)
+    except Exception as e:
+        log_progress(f"[Chrome] webdriver-manager 失敗: {e}，嘗試本地 chromedriver")
+        if os.path.exists(cfg.CHROME_DRIVER_PATH):
+            log_progress(f"[Chrome] 使用本地 chromedriver: {cfg.CHROME_DRIVER_PATH}")
+            service = Service(executable_path=cfg.CHROME_DRIVER_PATH)
+        else:
+            log_progress(f"[Chrome] 本地 chromedriver 不存在: {cfg.CHROME_DRIVER_PATH}")
             return None
 
     return webdriver.Chrome(service=service, options=options)

@@ -18,6 +18,8 @@ from . import config as cfg
 from .logger import log_progress
 from .serial_console import send_command
 
+_DEFERRED_PID_FILE = "/tmp/tcpdump_deferred.pid"
+
 
 def _enabled():
     return bool(getattr(cfg, "WIFI_BH_TCPDUMP_ENABLE", False))
@@ -28,18 +30,55 @@ def _enabled():
 # ---------------------------------------------------------------------------
 
 def start_wifi_bh_tcpdump():
-    """Start tcpdump on ath1 via serial after WiFi BH relay switch."""
+    """Start tcpdump on ath1 via serial.
+
+    Filter: WIFI_BH_TCPDUMP_FILTER (default "port 67 or port 68"; "" = all traffic).
+    Packet cap: WIFI_BH_TCPDUMP_MAX_PACKETS (default 300; 0 = no limit, stop via kill).
+
+    Deferred mode (when RASPI5_AIR_CAPTURE_BSSID is configured):
+      Sleeps WIFI_BH_TCPDUMP_BSSID_WAIT_DELAY seconds first to skip the transient
+      first-connection window, then polls `iw dev ath1 link` until ath1 reports
+      "Connected to <BSSID>" before starting tcpdump.  This avoids starting
+      capture on the brief initial association that drops before the stable link.
+    """
     if not _enabled():
         return
-    iface = getattr(cfg, "WIFI_BH_TCPDUMP_IFACE", "ath1")
-    pcap = getattr(cfg, "WIFI_BH_TCPDUMP_REMOTE_PATH", "/tmp/wifi_bh_dhcp.pcap")
-    max_pkt = int(getattr(cfg, "WIFI_BH_TCPDUMP_MAX_PACKETS", 300))
-    log_progress(f"[TCPDUMP] Start: tcpdump -i {iface} port 67/68 -c {max_pkt} -> {pcap}")
-    cmd = (
-        f"kill $(pgrep tcpdump) 2>/dev/null; "
-        f"rm -f {pcap}; "
-        f"tcpdump -i {iface} -w {pcap} port 67 or port 68 -c {max_pkt} &\n"
-    )
+    iface      = getattr(cfg, "WIFI_BH_TCPDUMP_IFACE",                  "ath1")
+    pcap       = getattr(cfg, "WIFI_BH_TCPDUMP_REMOTE_PATH",             "/tmp/wifi_bh_dhcp.pcap")
+    max_pkt    = int(getattr(cfg, "WIFI_BH_TCPDUMP_MAX_PACKETS",         300))
+    pkt_filter = getattr(cfg, "WIFI_BH_TCPDUMP_FILTER",                  "port 67 or port 68").strip()
+    bssid      = getattr(cfg, "RASPI5_AIR_CAPTURE_BSSID",                "").strip()
+    delay      = int(getattr(cfg, "WIFI_BH_TCPDUMP_BSSID_WAIT_DELAY",   60))
+    poll_tmout = int(getattr(cfg, "WIFI_BH_TCPDUMP_BSSID_POLL_TIMEOUT", 500))
+
+    filter_part = f" {pkt_filter}" if pkt_filter else ""
+    cap_part    = f" -c {max_pkt}" if max_pkt > 0 else ""
+
+    if bssid:
+        # Deferred: skip the transient first-connection window, then wait for stable link
+        log_progress(
+            f"[TCPDUMP] Deferred start: sleep {delay}s, poll ath1 for "
+            f"'Connected to {bssid}' (timeout={poll_tmout}s) -> {pcap}"
+        )
+        inner = (
+            f'while ! iw dev {iface} link 2>/dev/null | grep -qi "Connected to {bssid}"; '
+            f'do sleep 2; done; '
+            f'kill $(pgrep tcpdump) 2>/dev/null; '
+            f'rm -f {pcap}; '
+            f'tcpdump -i {iface} -w {pcap}{cap_part}{filter_part}'
+        )
+        cmd = (
+            f"( sleep {delay}; timeout {poll_tmout} sh -c '{inner}' ) & "
+            f"echo $! > {_DEFERRED_PID_FILE}\n"
+        )
+    else:
+        log_progress(f"[TCPDUMP] Start: tcpdump -i {iface}{cap_part}{filter_part} -> {pcap}")
+        cmd = (
+            f"kill $(pgrep tcpdump) 2>/dev/null; "
+            f"rm -f {pcap}; "
+            f"tcpdump -i {iface} -w {pcap}{cap_part}{filter_part} &\n"
+        )
+
     send_command(cmd, wait_after=1.5)
 
 
@@ -77,7 +116,12 @@ def stop_and_cleanup_wifi_bh_tcpdump():
 
     # No 192.168.0.x found → FAIL path; serial kill, keep pcap for collection
     log_progress("[TCPDUMP] Stop via serial (pcap kept for collect_diagnosticcomlog)")
-    send_command("kill $(pgrep tcpdump) 2>/dev/null\n", wait_after=1)
+    send_command(
+        f"[ -f {_DEFERRED_PID_FILE} ] && kill $(cat {_DEFERRED_PID_FILE}) 2>/dev/null; "
+        f"rm -f {_DEFERRED_PID_FILE}; "
+        f"kill $(pgrep tcpdump) 2>/dev/null\n",
+        wait_after=1,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -85,11 +129,16 @@ def stop_and_cleanup_wifi_bh_tcpdump():
 # ---------------------------------------------------------------------------
 
 def stop_for_download():
-    """Kill tcpdump via serial so the pcap file is complete before SCP."""
+    """Kill tcpdump (and any deferred starter) via serial so pcap is complete before SCP."""
     if not _enabled():
         return
     log_progress("[TCPDUMP] Stop tcpdump via serial before FAIL collection")
-    send_command("kill $(pgrep tcpdump) 2>/dev/null\n", wait_after=1)
+    send_command(
+        f"[ -f {_DEFERRED_PID_FILE} ] && kill $(cat {_DEFERRED_PID_FILE}) 2>/dev/null; "
+        f"rm -f {_DEFERRED_PID_FILE}; "
+        f"kill $(pgrep tcpdump) 2>/dev/null\n",
+        wait_after=1,
+    )
 
 
 # ---------------------------------------------------------------------------

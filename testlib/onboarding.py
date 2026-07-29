@@ -335,7 +335,7 @@ def run_rd_poll_debug_dump(ser, interface_name, round_index, poll_status="UNKNOW
     return marker_text
 
 
-def poll_booster_console(loop_str, interface_name, init_wait_time=None, threshold=None, max_total_limit=None, duration_start_time=None, write_summary_on_pass=True):
+def poll_booster_console(loop_str, interface_name, init_wait_time=None, threshold=None, max_total_limit=None, duration_start_time=None, write_summary_on_pass=True, show_loop_number=False):
     init_wait_time = cfg.INIT_WAIT_TIME if init_wait_time is None else init_wait_time
     threshold = cfg.ONBOARDING_THRESHOLD if threshold is None else threshold
     max_total_limit = cfg.NORMAL_MAX_TOTAL_LIMIT if max_total_limit is None else max_total_limit
@@ -450,7 +450,8 @@ def poll_booster_console(loop_str, interface_name, init_wait_time=None, threshol
                     log_result(f"{interface_name}: PASS, duration={onboarding_duration}s")
                     log_progress(f"[{cfg.BOOSTER_PORT}] >>> PASS！Onboarding Duration: {onboarding_duration}s <<<")
                     if write_summary_on_pass:
-                        write_summary(summary_loop_display(loop_str, interface_name), interface_name, f"{onboarding_duration}s", "PASS", "None")
+                        _loop_display = loop_str if show_loop_number else summary_loop_display(loop_str, interface_name)
+                        write_summary(_loop_display, interface_name, f"{onboarding_duration}s", "PASS", "None")
                     if close_after_use and ser is not None:
                         try:
                             ser.close()
@@ -469,7 +470,8 @@ def poll_booster_console(loop_str, interface_name, init_wait_time=None, threshol
     except Exception as e:
         log_result(f"{interface_name}: FAIL, COM Error: {e}")
         log_progress(f"[{cfg.BOOSTER_PORT}] 無法開啟 Serial Port: {e}")
-        write_summary(summary_loop_display(loop_str, interface_name), interface_name, "N/A", "FAIL", "COM Error")
+        _loop_display = loop_str if show_loop_number else summary_loop_display(loop_str, interface_name)
+        write_summary(_loop_display, interface_name, "N/A", "FAIL", "COM Error")
         if close_after_use and ser is not None:
             try:
                 ser.close()
@@ -481,7 +483,8 @@ def poll_booster_console(loop_str, interface_name, init_wait_time=None, threshol
     log_progress(f"[{cfg.BOOSTER_PORT}] >>> 輪詢超時 (FAIL, MAX_TOTAL_LIMIT={max_total_limit} 秒)！ <<<")
     if not locals().get("saw_valid_polling_output", False):
         last_fail_reason = "No Valid Onboarding Output"
-    write_summary(summary_loop_display(loop_str, interface_name), interface_name, "Timeout", "FAIL", last_fail_reason)
+    _loop_display = loop_str if show_loop_number else summary_loop_display(loop_str, interface_name)
+    write_summary(_loop_display, interface_name, "Timeout", "FAIL", last_fail_reason)
     if close_after_use and ser is not None:
         try:
             ser.close()
@@ -490,7 +493,7 @@ def poll_booster_console(loop_str, interface_name, init_wait_time=None, threshol
     return False
 
 
-def run_polling_or_recover(loop, interface_name, init_wait_time, threshold, case_name_suffix, duration_start_time=None, max_total_limit=None):
+def run_polling_or_recover(loop, interface_name, init_wait_time, threshold, case_name_suffix, duration_start_time=None, max_total_limit=None, restore_eth_bh=True, show_loop_number=False):
     from .recovery import safe_handle_fail_recovery
     from .logger import write_recovery_note
 
@@ -501,11 +504,12 @@ def run_polling_or_recover(loop, interface_name, init_wait_time, threshold, case
         threshold,
         max_total_limit=max_total_limit,
         duration_start_time=duration_start_time,
+        show_loop_number=show_loop_number,
     )
     if not result:
         log_step(f"{interface_name}: fail detected, start fail diagnostic / recovery")
         log_progress(f"!! {interface_name} 判定失敗，執行 fail diagnostic / recovery !!")
         write_recovery_note(interface_name)
-        safe_handle_fail_recovery(f"Loop{loop}_{cfg.CASE_ID}_{case_name_suffix}")
+        safe_handle_fail_recovery(f"Loop{loop}_{cfg.CASE_ID}_{case_name_suffix}", restore_eth_bh=restore_eth_bh)
         return False
     return True
