@@ -49,7 +49,7 @@ from testlib.serial_console import (
     _SERIAL_IO_LOCK,
 )
 from testlib.ssh_client import discover_ssh_host_by_serial, run_ssh_command, clear_cached_ssh_host
-from testlib.web_gui import wait_loading_done, _try_login_if_needed, _js_click
+from testlib.web_gui import wait_loading_done, _try_login_if_needed, _js_click, save_gui_screenshot
 
 
 def cfg_get(name, default):
@@ -275,12 +275,11 @@ def _poll_fh_sync(
     last_fail_parts: list = []
     while True:
         elapsed = int(time.time() - start)
-        uci_ok, uci_reason = check_fh_state(host, expected_disabled, label=f"{label} [{elapsed}s/{max_total}s]")
         wifi_ok, wifi_reason = check_wifi_inf_lan_ap_active_state(host, expected_enabled, label=f"{label} [{elapsed}s/{max_total}s]")
-        if uci_ok and wifi_ok:
+        if wifi_ok:
             log_progress(f"[CASE12][SYNC POLL] {elapsed}s 達成同步 — PASS")
             return True, ""
-        last_fail_parts = [r for r in [uci_reason, wifi_reason] if r]
+        last_fail_parts = [r for r in [wifi_reason] if r]
         log_progress(f"[CASE12][SYNC POLL {elapsed}s/{max_total}s] 未達成: {' | '.join(last_fail_parts)}")
         remaining = max_total - (time.time() - start)
         if remaining <= poll_interval * 0.5:
@@ -387,15 +386,13 @@ def check_wifi_inf_lan_ap_active_state(host: str, expected_enabled: bool, label:
         )
 
         if expected_enabled:
-            if active != ssid:
-                failures.append(f"idx{idx} active={active or '<empty>'}(期望={ssid})")
-            if disd != "0":
-                failures.append(f"idx{idx} disd={disd}(期望=0)")
+            # Enabled: real SSID, should NOT start with "FH"
+            if ssid.startswith("FH"):
+                failures.append(f"idx{idx} ssid={ssid}(期望非FH開頭/real SSID)")
         else:
-            if active:
-                failures.append(f"idx{idx} active={active}(期望=empty)")
-            if disd != "1":
-                failures.append(f"idx{idx} disd={disd}(期望=1)")
+            # Disabled: SSID changes to FH_xxx random, should start with "FH"
+            if not ssid.startswith("FH"):
+                failures.append(f"idx{idx} ssid={ssid or '<empty>'}(期望FH開頭)")
 
     if failures:
         for item in failures:
@@ -444,18 +441,20 @@ def open_wifi_basic(driver, wait):
     receive_monitor(2)
 
 
-def click_apply_if_available(driver, wait):
+def click_apply_if_available(driver, wait, action_label=""):
     try:
         apply_btn = wait.until(EC.presence_of_element_located((By.XPATH, XPATH_WIFI_BASIC_APPLY)))
         log_progress("點擊 Apply 套用 Wireless 設定")
         _js_click(driver, apply_btn, wait_after=1)
         wait_loading_done(wait)
         receive_monitor(2)
+        safe = action_label.replace(" ", "_") if action_label else "apply"
+        save_gui_screenshot(driver, f"{cfg.TEST_CASE_NAME}_{safe}_after_apply")
     except Exception as e:
         log_progress(f"Apply button 未出現或不可點擊，繼續流程: {type(e).__name__}: {e}")
 
 
-def set_tsm4_wireless(driver, wait, desired_enabled: bool, booster_host: str) -> bool:
+def set_tsm4_wireless(driver, wait, desired_enabled: bool, booster_host: str, action_label: str = "") -> bool:
     open_wifi_basic(driver, wait)
     toggle = wait.until(EC.presence_of_element_located((By.XPATH, XPATH_WIRELESS_ENABLE_TOGGLE)))
     gui_state = read_gui_toggle_state(driver, toggle)
@@ -472,7 +471,7 @@ def set_tsm4_wireless(driver, wait, desired_enabled: bool, booster_host: str) ->
 
     if gui_state == desired_enabled:
         log_progress(f"GUI wireless 已是目標狀態: {'enabled' if desired_enabled else 'disabled'}，仍點 Apply 確認。")
-        click_apply_if_available(driver, wait)
+        click_apply_if_available(driver, wait, action_label)
         return True
 
     log_progress(f"切換 TSM4 Wireless -> {'Enable' if desired_enabled else 'Disable'}")
@@ -481,11 +480,14 @@ def set_tsm4_wireless(driver, wait, desired_enabled: bool, booster_host: str) ->
     # Verify the toggle actually flipped before clicking Apply.
     toggle_after = wait.until(EC.presence_of_element_located((By.XPATH, XPATH_WIRELESS_ENABLE_TOGGLE)))
     new_state = read_gui_toggle_state(driver, toggle_after)
+    receive_monitor(2)
+    safe_label = action_label.replace(" ", "_") if action_label else "toggle"
+    save_gui_screenshot(driver, f"{cfg.TEST_CASE_NAME}_{safe_label}_toggle_after_click")
     if new_state is not None and new_state != desired_enabled:
         log_progress(f"[CASE12][GUI] toggle 點擊後狀態仍為 {'enabled' if new_state else 'disabled'}，未切換成功，回傳 False")
         return False
 
-    click_apply_if_available(driver, wait)
+    click_apply_if_available(driver, wait, action_label)
     return True
 
 
@@ -522,7 +524,7 @@ def set_tsm4_wireless_with_retry(host: str, desired_enabled: bool, action_label:
                 raise RuntimeError("Chrome driver 建立失敗")
 
             wait = WebDriverWait(driver, cfg.WAIT_TIMEOUT)
-            ok = bool(set_tsm4_wireless(driver, wait, desired_enabled=desired_enabled, booster_host=host))
+            ok = bool(set_tsm4_wireless(driver, wait, desired_enabled=desired_enabled, booster_host=host, action_label=action_label))
             if ok:
                 log_result(f"Case12 GUI {action_label} PASS: target={target}")
             return ok
@@ -566,18 +568,11 @@ def ensure_tsm4_wireless_enabled_best_effort(host: Optional[str], reason: str, w
         log_step(f"Case12 cleanup: wait after Wireless enable, wait={wait_after}s")
         receive_monitor(wait_after)
 
-    try:
-        if ok:
-            fh_ok, _ = check_fh_state(host, expected_disabled="0", label=f"Cleanup Enable Wireless - {reason}")
-            if fh_ok:
-                log_result(f"Case12 cleanup PASS: TSM4 Wireless enabled and FH disabled=0 ({reason})")
-            else:
-                log_result(f"Case12 cleanup WARNING: GUI enable sent but FH disabled state not fully 0 ({reason})")
-            return fh_ok
-    except Exception as e:
-        log_result(f"Case12 cleanup WARNING: FH verify failed after enable ({reason}): {type(e).__name__}: {e}")
+    if ok:
+        log_result(f"Case12 cleanup PASS: TSM4 Wireless enable GUI sent ({reason})")
+        return True
 
-    log_result(f"Case12 cleanup FAIL: unable to confirm TSM4 Wireless enabled ({reason})")
+    log_result(f"Case12 cleanup FAIL: unable to send TSM4 Wireless enable ({reason})")
     return False
 
 

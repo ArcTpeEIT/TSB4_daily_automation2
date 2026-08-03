@@ -50,16 +50,17 @@ def get_stage_init_wait(interface_name):
 
 def execute_stage(loop, interface_name, relay_state):
     log_separator(f"LOOP {loop} - {interface_name} 測試開始")
+    backhaul_name = "ETH BH" if str(relay_state).lower() == "on" else "WiFi BH"
+    log_progress(f"STEP: Relay 切換 ({relay_state.upper()}) 配置 {interface_name}")
+    control_relay(relay_state)
+    receive_monitor(cfg.RELAY_SETTLE_TIME)
+
     log_progress("送出 RE warm reboot 指令: reboot")
     cmd_ok, duration_start_time = send_command_with_timestamp("reboot\n", wait_after=0)
     if not cmd_ok:
         write_summary(summary_loop_display(str(loop), interface_name), interface_name, "N/A", "FAIL", "Serial Command Error")
         safe_handle_fail_recovery(f"Loop{loop}_{cfg.CASE_ID}_WarmReboot_Command_Fail")
         return False
-
-    receive_monitor(cfg.RE_WARM_REBOOT_POST_WAIT)
-    control_relay(relay_state)
-    receive_monitor(cfg.RE_WARM_REBOOT_RELAY_POST_WAIT)
 
     init_wait_time = get_stage_init_wait(interface_name)
     log_progress(f"{interface_name} onboarding init wait = {init_wait_time} 秒")

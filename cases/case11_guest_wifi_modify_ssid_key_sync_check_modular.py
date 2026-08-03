@@ -50,6 +50,7 @@ from testlib.serial_console import (
 )
 from testlib.ssh_client import run_ssh_command, discover_ssh_host_by_serial
 from testlib.recovery import safe_handle_fail_recovery
+from testlib.web_gui import save_gui_screenshot
 from cases._case_common import add_common_args, apply_common_args
 
 
@@ -364,6 +365,7 @@ def set_guest_wifi_enabled(driver, wait, enable=True):
         log_progress(f"Guest WiFi 目前不是 {desired_text}，點擊 Enable Wireless toggle 切成 {desired_text}")
         js_click(driver, toggle)
         receive_monitor(float(_cfg("CASE11_GUI_TOGGLE_WAIT", 2)))
+        save_gui_screenshot(driver, f"{cfg.TEST_CASE_NAME}_guest_wifi_toggle_after_click")
     else:
         log_progress(f"Guest WiFi 看起來已是 {desired_text} 或無法判讀狀態，略過 toggle")
 
@@ -446,6 +448,7 @@ def modify_wifi_by_gui(ssid, wifi_password):
         receive_monitor(float(_cfg("CASE11_GUI_AFTER_APPLY_CLICK_WAIT", 1)))
         wait_loading_done(wait)
         receive_monitor(float(_cfg("CASE11_GUI_AFTER_APPLY_DONE_WAIT", 2)))
+        save_gui_screenshot(driver, f"{cfg.TEST_CASE_NAME}_guest_wifi_after_apply")
 
         log_result("Web GUI action PASS: WiFi modification submitted")
         return True, "None"
@@ -470,6 +473,12 @@ def run_one_stage(loop_str, interface_name, ssid, key, monitor_time):
         return False, "Relay switch failed"
 
     receive_monitor(cfg.RELAY_SETTLE_TIME)
+
+    if interface_name == "WiFi BH":
+        pre_gui_wait = int(_cfg("CASE11_WIFI_BH_PRE_GUI_WAIT", 0))
+        if pre_gui_wait > 0:
+            log_progress(f"WiFi BH pre-GUI wait {pre_gui_wait}s：等待 RE 建立 WiFi BH 並取得 DHCP 後再變更 SSID")
+            receive_monitor(pre_gui_wait)
 
     gui_ok, gui_reason = modify_wifi_by_gui(ssid, key)
     if not gui_ok:

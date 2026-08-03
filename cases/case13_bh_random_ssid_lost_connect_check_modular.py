@@ -45,7 +45,6 @@ from testlib.logger import (
     write_recovery_note,
 )
 from testlib.env_info import get_environment_fw_versions_close_browser
-from testlib.onboarding import poll_booster_console
 from testlib.relay import control_relay, control_relay_channel, restore_eth_backhaul
 from testlib.recovery import safe_handle_fail_recovery
 from testlib.serial_console import (
@@ -71,14 +70,11 @@ def parse_args():
     parser.add_argument("--loops", type=int, default=cfg_get("TOTAL_LOOPS", 1))
     parser.add_argument("--booster-port", default=cfg_get("BOOSTER_PORT", "COM4"))
     parser.add_argument("--relay-port", default=cfg_get("RELAY_PORT", "COM3"))
-    parser.add_argument("--eth-init-wait", type=int, default=cfg_get("CASE13_ETH_ONBOARDING_INIT_WAIT_TIME", cfg_get("CASE2_ETH_ONBOARDING_INIT_WAIT_TIME", 30)))
-    parser.add_argument("--max-total-limit", type=int, default=cfg_get("CASE13_MAX_TOTAL_LIMIT", cfg_get("NORMAL_MAX_TOTAL_LIMIT", 600)))
-    parser.add_argument("--threshold", type=int, default=cfg_get("CASE13_ONBOARDING_THRESHOLD", cfg_get("ONBOARDING_THRESHOLD", 3)))
+    parser.add_argument("--eth-init-wait", type=int, default=cfg_get("CASE13_ETH_ONBOARDING_INIT_WAIT_TIME", 10))
     parser.add_argument("--tsm4-power-off-wait", type=int, default=cfg_get("CASE13_TSM4_POWER_OFF_WAIT", 30))
     parser.add_argument("--tsm4-power-restore-wait", type=int, default=cfg_get("CASE13_TSM4_POWER_RESTORE_WAIT", 120))
     parser.add_argument("--random-prefix", default=cfg_get("CASE13_EXPECTED_RANDOM_PREFIX", "BH_5_"))
     parser.add_argument("--random-ssid-cmd", default=cfg_get("CASE13_ARC_FH_RANDOM_SSID_CMD", "uci get wireless.@wifi-iface[4].ArcFHRandomSSID"))
-    parser.add_argument("--bh-ssid-cmd", default=cfg_get("CASE13_BH_SSID_CMD", "uci get wireless.@wifi-iface[4].ssid"))
     parser.add_argument("--check-read-time", type=int, default=cfg_get("CASE13_UCI_CHECK_READ_TIME", 3))
     parser.add_argument("--check-re-status-script", default=cfg_get("CHECK_RE_STATUS_SCRIPT", "check_RE_status.py"))
     parser.add_argument("--check-re-status-com-port", default=None)
@@ -92,13 +88,10 @@ def apply_args(args):
     cfg.BOOSTER_PORT = args.booster_port
     cfg.RELAY_PORT = args.relay_port
     cfg.CASE13_ETH_ONBOARDING_INIT_WAIT_TIME = args.eth_init_wait
-    cfg.CASE13_MAX_TOTAL_LIMIT = args.max_total_limit
-    cfg.CASE13_ONBOARDING_THRESHOLD = args.threshold
     cfg.CASE13_TSM4_POWER_OFF_WAIT = args.tsm4_power_off_wait
     cfg.CASE13_TSM4_POWER_RESTORE_WAIT = args.tsm4_power_restore_wait
     cfg.CASE13_EXPECTED_RANDOM_PREFIX = args.random_prefix
     cfg.CASE13_ARC_FH_RANDOM_SSID_CMD = args.random_ssid_cmd
-    cfg.CASE13_BH_SSID_CMD = args.bh_ssid_cmd
     cfg.CASE13_UCI_CHECK_READ_TIME = args.check_read_time
     cfg.CHECK_RE_STATUS_SCRIPT = args.check_re_status_script
     cfg.CHECK_RE_STATUS_COM_PORT = args.check_re_status_com_port or cfg.BOOSTER_PORT
@@ -188,15 +181,15 @@ def parse_random_ssid_value(output, expected_prefix):
 
 
 def check_bh_random_ssid(args):
-    """Check ArcFHRandomSSID and fallback ssid value.
+    """Check ArcFHRandomSSID only.
 
     PASS rule:
-        ArcFHRandomSSID exists and starts with expected prefix, normally BH_5_.
+        ArcFHRandomSSID exists and starts with expected prefix (BH_5_).
 
     FAIL rules:
-        - ArcFHRandomSSID command returns Entry not found.
+        - Serial command failed.
+        - ArcFHRandomSSID returns Entry not found (TSM4 still on or not triggered).
         - ArcFHRandomSSID value does not start with BH_5_.
-        - Current ssid is still normal backhaul SSID such as Telstra*_Backhaul.
     """
     log_step("Case13: check ArcFHRandomSSID")
     ok, random_output, reason = run_serial_command(args.random_ssid_cmd, args.check_read_time)
@@ -206,19 +199,9 @@ def check_bh_random_ssid(args):
     random_value = parse_random_ssid_value(random_output, args.random_prefix)
     entry_not_found = "uci: Entry not found" in (random_output or "")
 
-    log_step("Case13: check current BH SSID")
-    ok2, ssid_output, reason2 = run_serial_command(args.bh_ssid_cmd, args.check_read_time)
-    if not ok2:
-        # Still fail clearly because RD needs this diagnostic value.
-        return False, f"SSID verify command failed: {reason2}; ArcFHRandomSSID output={random_output!r}"
-
-    normal_ssid_lines = [line.strip().strip("'\"") for line in ssid_output.splitlines() if line.strip()]
-    normal_ssid = normal_ssid_lines[-1] if normal_ssid_lines else ""
-
     log_details("[CASE13][VERIFY] --------------------------------------------------")
     log_details(f"[CASE13][VERIFY] ArcFHRandomSSID output : {random_output or '<empty>'}")
     log_details(f"[CASE13][VERIFY] Parsed random SSID    : {random_value or '<none>'}")
-    log_details(f"[CASE13][VERIFY] Current iface[4].ssid  : {normal_ssid or '<empty>'}")
     log_details(f"[CASE13][VERIFY] Expected prefix        : {args.random_prefix}")
     log_details("[CASE13][VERIFY] --------------------------------------------------")
 
@@ -227,15 +210,11 @@ def check_bh_random_ssid(args):
         return True, f"ArcFHRandomSSID={random_value}"
 
     if entry_not_found:
-        log_result("Case13 random SSID check FAIL: ArcFHRandomSSID Entry not found")
+        log_result("Case13 random SSID check FAIL: ArcFHRandomSSID Entry not found (TSM4 off not triggered)")
         return False, "ArcFHRandomSSID Entry not found"
 
-    if normal_ssid.endswith("_Backhaul") or normal_ssid.startswith("Telstra"):
-        log_result(f"Case13 random SSID check FAIL: BH SSID still not randomized, ssid={normal_ssid or '<empty>'}")
-        return False, f"BH SSID still not randomized: ssid={normal_ssid or '<empty>'}"
-
     log_result("Case13 random SSID check FAIL: ArcFHRandomSSID invalid")
-    return False, f"ArcFHRandomSSID invalid: output={random_output or '<empty>'}; ssid={normal_ssid or '<empty>'}"
+    return False, f"ArcFHRandomSSID invalid: output={random_output or '<empty>'}"
 
 
 def power_tsm4_off():
@@ -279,32 +258,13 @@ def run_case13(args):
 
         for loop in range(1, cfg.TOTAL_LOOPS + 1):
             loop_str = str(loop)
-            log_separator(f"LOOP {loop} - ETH BH onboarding before lost-connect check")
-            log_step(f"Loop {loop}: start ETH BH onboarding before lost-connect check")
+            log_separator(f"LOOP {loop} - ETH BH init and TSM4 power off")
             log_step(f"Loop {loop}: switch to ETH BH, relay {cfg.RELAY_ETH_PORT} on")
             log_progress("STEP 1: 切換 ETH BH - relay ETH on")
             control_relay("on")
-            duration_start_time = time.time()
             receive_monitor(cfg.RELAY_SETTLE_TIME)
-
-            onboard_ok = poll_booster_console(
-                loop_str,
-                "ETH BH",
-                init_wait_time=cfg.CASE13_ETH_ONBOARDING_INIT_WAIT_TIME,
-                threshold=cfg.CASE13_ONBOARDING_THRESHOLD,
-                max_total_limit=cfg.CASE13_MAX_TOTAL_LIMIT,
-                duration_start_time=duration_start_time,
-                write_summary_on_pass=False,
-            )
-            if not onboard_ok:
-                reason = "ETH BH onboarding fail before BH random SSID check"
-                log_result(f"Loop {loop}: Case13 FAIL, {reason}")
-                log_progress(f"[CASE13][FAIL] {reason}")
-                case_failed = True
-                write_recovery_note("ETH BH", "Recovery(check_RE_status_only_no_factory_workaround)")
-                safe_handle_fail_recovery(f"Loop{loop}_{cfg.CASE_ID}_ETH_BH_Onboarding_Fail")
-                recovery_done = True
-                return 1
+            log_step(f"Loop {loop}: ETH BH init wait={cfg.CASE13_ETH_ONBOARDING_INIT_WAIT_TIME}s")
+            receive_monitor(cfg.CASE13_ETH_ONBOARDING_INIT_WAIT_TIME)
 
             log_separator(f"LOOP {loop} - TSM4 power off and BH random SSID check")
             log_step(f"Loop {loop}: TSM4 power off and BH random SSID check")

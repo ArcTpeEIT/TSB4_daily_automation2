@@ -49,6 +49,7 @@ from testlib.logger import (
 from testlib.onboarding import run_polling_or_recover
 from testlib.recovery import safe_handle_fail_recovery
 from testlib.relay import control_relay, restore_eth_backhaul
+from testlib.web_gui import save_gui_screenshot
 from testlib.serial_console import (
     _SERIAL_IO_LOCK,
     get_serial_for_command,
@@ -82,6 +83,7 @@ def parse_args():
     parser.add_argument("--wifi-bh-pre-wps-wait", type=int, default=cfg_get("CASE14_WIFI_BH_PRE_WPS_WAIT", 150))
     parser.add_argument("--after-tsm4-wps-wait", type=int, default=cfg_get("CASE14_AFTER_TSM4_WPS_WAIT", 3))
     parser.add_argument("--re-wps-cmd", default=cfg_get("CASE14_RE_WPS_CMD", "wpa_cli -p /var/run/wpa_supplicant-ath1 wps_pbc multi_ap=2"))
+    parser.add_argument("--re-wps-cmd-2", default=cfg_get("CASE14_RE_WPS_CMD_2", "wpa_cli -p /var/run/wpa_supplicant-ath2 wps_pbc multi_ap=2"))
     parser.add_argument("--re-wps-read-time", type=float, default=cfg_get("CASE14_RE_WPS_READ_TIME", 3))
 
     parser.add_argument("--wps-onboarding-init-wait", type=int, default=cfg_get("CASE14_WPS_ONBOARDING_INIT_WAIT", 240))
@@ -112,7 +114,8 @@ def apply_args(args):
     cfg.CASE14_RE_FACTORY_DEFAULT_POST_WAIT = args.re_factory_default_post_wait
     cfg.CASE14_WIFI_BH_PRE_WPS_WAIT = args.wifi_bh_pre_wps_wait
     cfg.CASE14_AFTER_TSM4_WPS_WAIT = args.after_tsm4_wps_wait
-    cfg.CASE14_RE_WPS_CMD = args.re_wps_cmd
+    cfg.CASE14_RE_WPS_CMD   = args.re_wps_cmd
+    cfg.CASE14_RE_WPS_CMD_2 = args.re_wps_cmd_2
     cfg.CASE14_RE_WPS_READ_TIME = args.re_wps_read_time
     cfg.CASE14_WPS_ONBOARDING_INIT_WAIT = args.wps_onboarding_init_wait
     cfg.CASE14_MAX_TOTAL_LIMIT = args.case14_max_total_limit
@@ -234,6 +237,8 @@ def press_tsm4_wps_5g(args):
             log_progress(f"[CASE14][GUI] primary WPS click failed: {type(first_e).__name__}: {first_e}; try fallback")
             wps_button_fb = wait.until(EC.element_to_be_clickable((By.XPATH, cfg.XPATH_WPS_5G_PUSH_BUTTON_FALLBACK)))
             js_click(driver, wps_button_fb, wait_after=1)
+        receive_monitor(2)
+        save_gui_screenshot(driver, f"{cfg.TEST_CASE_NAME}_wps_5g_button_clicked")
 
         log_result("Case14 TSM4 WPS 5GHz PASS: push button submitted")
         close_wait = float(getattr(cfg, "CASE14_WPS_BROWSER_CLOSE_WAIT", 5) or 0)
@@ -352,10 +357,20 @@ def run_case14(args):
             ok, _, reason = run_serial_command(
                 cfg.CASE14_RE_WPS_CMD,
                 read_time=cfg.CASE14_RE_WPS_READ_TIME,
-                label="RE WPS PBC",
+                label="RE WPS PBC ath1",
             )
             if not ok:
-                fail_and_recover(loop, f"RE WPS PBC command failed: {reason}", "RE_WPS_Cmd_Fail")
+                fail_and_recover(loop, f"RE WPS PBC ath1 command failed: {reason}", "RE_WPS_Cmd_Fail")
+                cleanup_done = True
+                return 1
+
+            ok, _, reason = run_serial_command(
+                cfg.CASE14_RE_WPS_CMD_2,
+                read_time=cfg.CASE14_RE_WPS_READ_TIME,
+                label="RE WPS PBC ath2",
+            )
+            if not ok:
+                fail_and_recover(loop, f"RE WPS PBC ath2 command failed: {reason}", "RE_WPS_Cmd_Fail")
                 cleanup_done = True
                 return 1
 

@@ -54,6 +54,9 @@ if __name__ == "__main__":
             cfg.ONBOARDING_THRESHOLD,
             cfg.CASE6_ETH_ONBOARDING_INIT_WAIT_TIME,
             cfg.CASE6_WIFI_ONBOARDING_INIT_WAIT_TIME,
+            precheck_init_wait=cfg.CASE6_WIFI_PRECHECK_INIT_WAIT,
+            precheck_threshold=cfg.CASE6_WIFI_PRECHECK_THRESHOLD,
+            precheck_max_limit=cfg.CASE6_WIFI_PRECHECK_MAX_LIMIT,
         )
         exit_code = 0 if ok else 1
     finally:

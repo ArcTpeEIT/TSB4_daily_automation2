@@ -55,6 +55,12 @@ def get_stage_init_wait(interface_name):
 def execute_stage(loop, interface_name, relay_state):
     log_separator(f"LOOP {loop} - {interface_name} 測試開始")
     log_progress(
+        f"STEP: Relay {cfg.RELAY_ETH_PORT} 切換 ({relay_state.upper()}) 配置 {interface_name}"
+    )
+    control_relay(relay_state)
+    receive_monitor(cfg.RELAY_SETTLE_TIME)
+
+    log_progress(
         f"STEP: RE cold reboot power cycle - relay {cfg.RE_COLD_POWER_RELAY_PORT} off "
         f"-> 等待 {cfg.RE_COLD_REBOOT_POWER_OFF_TIME} 秒 -> relay {cfg.RE_COLD_POWER_RELAY_PORT} on"
     )
@@ -68,16 +74,6 @@ def execute_stage(loop, interface_name, relay_state):
     duration_start_time = time.time()
     log_progress(f"等待 RE power on / boot 開始 {cfg.RE_COLD_REBOOT_POST_WAIT} 秒...")
     receive_monitor(cfg.RE_COLD_REBOOT_POST_WAIT)
-
-    log_progress(
-        f"STEP: Relay {cfg.RELAY_ETH_PORT} 切換 ({relay_state.upper()}) 配置 {interface_name}"
-    )
-    control_relay(relay_state)
-    log_progress(
-        f"Relay {cfg.RELAY_ETH_PORT} 切換後等待 RE_COLD_REBOOT_RELAY_POST_WAIT = "
-        f"{cfg.RE_COLD_REBOOT_RELAY_POST_WAIT} 秒..."
-    )
-    receive_monitor(cfg.RE_COLD_REBOOT_RELAY_POST_WAIT)
 
     init_wait_time = get_stage_init_wait(interface_name)
     log_progress(f"{interface_name} onboarding init wait = {init_wait_time} 秒")

@@ -47,6 +47,10 @@ def get_stage_init_wait(interface_name):
 
 def execute_stage(loop, interface_name, relay_state, active_driver=None):
     log_separator(f"LOOP {loop} - {interface_name} 測試開始")
+    log_progress(f"STEP: Relay 切換 ({relay_state.upper()}) 配置 {interface_name}")
+    control_relay(relay_state)
+    receive_monitor(cfg.RELAY_SETTLE_TIME)
+
     log_progress(f"STEP: 準備執行 {interface_name} 測試 (GUI 觸發 TSM4 Restart)")
 
     gui_ok, duration_start_time = trigger_tsm4_restart(active_driver)
@@ -58,11 +62,6 @@ def execute_stage(loop, interface_name, relay_state, active_driver=None):
 
     log_progress(f"等待 TSM4 reboot 後系統穩定 {cfg.TSM4_REBOOT_POST_WAIT}s...")
     receive_monitor(cfg.TSM4_REBOOT_POST_WAIT)
-
-    log_progress(f"STEP: Relay 切換 ({relay_state.upper()}) 配置 {interface_name}")
-    control_relay(relay_state)
-    log_progress(f"Relay 切換後等待 TSM4_REBOOT_RELAY_POST_WAIT = {cfg.TSM4_REBOOT_RELAY_POST_WAIT} 秒...")
-    receive_monitor(cfg.TSM4_REBOOT_RELAY_POST_WAIT)
 
     init_wait_time = get_stage_init_wait(interface_name)
     log_progress(f"{interface_name} onboarding init wait = {init_wait_time} 秒")
