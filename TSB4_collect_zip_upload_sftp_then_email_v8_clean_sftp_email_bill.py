@@ -1,6 +1,5 @@
 import os
 import glob
-import re
 import zipfile
 import smtplib
 import shutil
@@ -38,12 +37,6 @@ SFTP_PORT = 22
 SFTP_USER = "arctaxbooster4"
 SFTP_PASS = "%C82B5B3"
 SFTP_UPLOAD_ROOT = "/TA_booster4/DailyBuild_Automation"
-
-# FW upgrade log is generated in automation root by Download_fw_then_upgrade_TSB4_fixed_log_root.py.
-# Keep the pattern narrow to avoid collecting unrelated logs from the root folder.
-FW_UPGRADE_LOG_PATTERNS = [
-    "fw_upgrade*.log",
-]
 # ============================================================
 
 
@@ -53,7 +46,6 @@ def send_email(subject, body, attachments=None):
     # receiver = 'bill_chen@arcadyan.com'
     receivers = [
     'bill_chen@arcadyan.com',
-    #'jh_yen@arcadyan.com',
     #'zach_chu@arcadyan.com',
     #'chocho_chen@arcadyan.com',
     #'dennis_chiang@arcadyan.com',
@@ -214,87 +206,8 @@ def extract_last_diagnostic_summary(lines):
     return "".join(lines[start_idx:end_idx]).rstrip()
 
 
-
-def sanitize_report_name(name):
-    """Return a Windows-safe, SFTP-safe report folder/file token."""
-    value = str(name or "Unknown_FW").strip()
-    value = value.replace("/", "_").replace("\\", "_")
-    value = re.sub(r"[\s:*?\"<>|]+", "_", value)
-    value = re.sub(r"_+", "_", value).strip("._")
-    return value or "Unknown_FW"
-
-
-def extract_fw_version_from_summary_files(summary_files):
-    """Extract FW version from Summary.log files when case logs exist."""
-    for summary_path in summary_files:
-        try:
-            with open(summary_path, "r", encoding="utf-8", errors="ignore") as f:
-                for line in f:
-                    if "Booster Firmware Version" in line:
-                        return line.split(":")[-1].strip().replace("/", "_")
-                    if "Firmware version:" in line and "root@" not in line:
-                        return line.split(":")[-1].strip().replace("/", "_")
-        except Exception as e:
-            log_progress(f"FW version parse skip Summary.log {summary_path}, reason={type(e).__name__}: {e}")
-    return ""
-
-
-def extract_fw_version_from_fw_filename(fw_name):
-    """Prefer a short TSB4 token from an ArcSigned firmware filename."""
-    base = os.path.basename(str(fw_name or "").strip().strip("'\""))
-    base = re.sub(r"\.bin$", "", base, flags=re.IGNORECASE)
-    m = re.search(r"(TSB4[._A-Za-z0-9-]+?)(?:_ArcSigned|$)", base)
-    if m:
-        return m.group(1)
-    return base
-
-
-def extract_fw_version_from_fw_upgrade_logs(fw_upgrade_files):
-    """Extract FW version from fw_upgrade*.log when no Summary.log exists."""
-    latest_first = sorted(
-        fw_upgrade_files,
-        key=lambda p: os.path.getmtime(p) if os.path.exists(p) else 0,
-        reverse=True,
-    )
-    for fw_log in latest_first:
-        try:
-            with open(fw_log, "r", encoding="utf-8", errors="ignore") as f:
-                text = f.read()
-        except Exception as e:
-            log_progress(f"FW version parse skip FW log {fw_log}, reason={type(e).__name__}: {e}")
-            continue
-
-        m = re.search(r"target firmware found\s*=\s*([^\r\n]+)", text, flags=re.IGNORECASE)
-        if m:
-            return extract_fw_version_from_fw_filename(m.group(1))
-
-        m = re.search(r"(\S*TSB4\S*ArcSigned\S*\.bin)", text, flags=re.IGNORECASE)
-        if m:
-            return extract_fw_version_from_fw_filename(m.group(1))
-    return ""
-
-
-def unique_existing_files(file_list):
-    """Preserve order while removing duplicate paths and non-files."""
-    result = []
-    seen = set()
-    for path in file_list:
-        norm = os.path.normpath(path)
-        if norm in seen:
-            continue
-        if os.path.isfile(path):
-            seen.add(norm)
-            result.append(path)
-    return result
-
-
-def email_file_list(files):
-    if not files:
-        return "None"
-    return "\n".join(f"  - {os.path.basename(f)}" for f in files)
-
 def main():
-    log_step("Final collect start: scan Summary/Console/diagnosticcomlog/FW-upgrade files")
+    log_step("Final collect start: scan Summary/Console/diagnosticcomlog files")
     now_str = datetime.now().strftime("%Y%m%d_%H%M%S")
     remote_dir = SFTP_UPLOAD_ROOT.rstrip("/")
 
@@ -310,41 +223,30 @@ def main():
         glob.glob(os.path.join("RE_fail_logs", "**", "*diagnosticcomlog.tgz"), recursive=True)
     ))
 
-    fw_upgrade_files = sorted(set(
-        fw_log
-        for pattern in FW_UPGRADE_LOG_PATTERNS
-        for fw_log in glob.glob(pattern)
-        if os.path.isfile(fw_log)
-    ))
-
     tsm4_gui_files = sorted(set(
         glob.glob("*_tsm4_gui_factory_default.log") +
         glob.glob("*_tsm4_gui_reboot_booster.log")
     ))
 
-    collected_logs = unique_existing_files(summary_files + console_files + diagnostic_files + fw_upgrade_files + tsm4_gui_files)
+    screenshot_files = sorted(glob.glob("*.png"))
 
-    log_result(
-        f"Final collect: found Summary={len(summary_files)}, "
-        f"Console={len(console_files)}, diagnostic={len(diagnostic_files)}, "
-        f"fw_upgrade_log={len(fw_upgrade_files)}, tsm4_gui_log={len(tsm4_gui_files)}"
-    )
+    log_result(f"Final collect: found Summary={len(summary_files)}, Console={len(console_files)}, diagnostic={len(diagnostic_files)}, tsm4_gui_log={len(tsm4_gui_files)}, screenshot={len(screenshot_files)}")
 
-    if not collected_logs:
-        log_result("Final collect FAIL: no log files found")
+    if not summary_files:
+        log_result("Final collect FAIL: no Summary.log files found")
         return 1
 
-    fw_version = extract_fw_version_from_summary_files(summary_files)
-    if not fw_version:
-        fw_version = extract_fw_version_from_fw_upgrade_logs(fw_upgrade_files)
-    if not fw_version:
-        fw_version = "Unknown_FW"
-    fw_version = sanitize_report_name(fw_version)
+    fw_version = "Unknown_FW"
+    with open(summary_files[0], "r", encoding="utf-8") as f:
+        for line in f:
+            if "Booster Firmware Version" in line:
+                fw_version = line.split(":")[-1].strip().replace("/", "_")
+                break
+            if "Firmware version:" in line and "root@" not in line:
+                fw_version = line.split(":")[-1].strip().replace("/", "_")
+                break
 
     log_result(f"Final collect: Booster FW version = {fw_version}")
-
-    has_summary = bool(summary_files)
-    collection_mode = "FULL_SUMMARY" if has_summary else "PARTIAL_NO_SUMMARY"
 
     target_folder = f"{fw_version}"
     if not os.path.exists(target_folder):
@@ -357,6 +259,7 @@ def main():
 
     critical_issues = []
     failed_diagnostic_summaries = []
+    latest_diagnostic_summary = ""
     fail_count = 0
     pass_count = 0
     case_list = []
@@ -364,25 +267,21 @@ def main():
     for f_path in summary_files:
         has_real_fail = False
         fname = os.path.basename(f_path)
-        try:
-            with open(f_path, "r", encoding="utf-8", errors="ignore") as infile:
-                lines = infile.readlines()
-        except Exception as e:
-            critical_issues.append(f"[ISSUE in {fname}]: cannot read Summary.log, reason={type(e).__name__}: {e}")
-            fail_count += 1
-            continue
+        with open(f_path, "r", encoding="utf-8") as infile:
+            lines = infile.readlines()
+            diagnostic_summary = extract_last_diagnostic_summary(lines)
+            if diagnostic_summary:
+                latest_diagnostic_summary = diagnostic_summary
 
-        diagnostic_summary = extract_last_diagnostic_summary(lines)
+            for line in lines:
+                parts = [p.strip().upper() for p in line.split("|")]
+                if len(parts) >= 5 and ("FAIL" in parts or "TIMEOUT" in parts):
+                    critical_issues.append(f"[ISSUE in {fname}]: {line.strip()}")
+                    has_real_fail = True
 
-        for line in lines:
-            parts = [p.strip().upper() for p in line.split("|")]
-            if len(parts) >= 5 and ("FAIL" in parts or "TIMEOUT" in parts):
-                critical_issues.append(f"[ISSUE in {fname}]: {line.strip()}")
-                has_real_fail = True
-
-        if lines:
-            case_name = normalize_case_name(lines[0])
-            case_list.append(format_case_description(case_name))
+            if lines:
+                case_name = normalize_case_name(lines[0])
+                case_list.append(format_case_description(case_name))
 
         if has_real_fail:
             fail_count += 1
@@ -391,68 +290,27 @@ def main():
         else:
             pass_count += 1
 
-    if has_summary:
-        test_status = "PASS" if fail_count == 0 else "FAIL"
-    else:
-        test_status = "INCOMPLETE"
-        critical_issues.append("[NO SUMMARY]: no Summary.log files found; this package contains available logs only.")
-
     log_step(f"Final collect: build all-case summary {all_summary_name}")
     with open(all_summary_name, "w", encoding="utf-8") as outfile:
         outfile.write("=" * 95 + "\n")
-        title = "AUTOMATION TEST REPORT" if has_summary else "AUTOMATION PARTIAL LOG PACKAGE"
-        outfile.write(f" {title} - {fw_version}\n")
+        outfile.write(f" AUTOMATION TEST REPORT - {fw_version}\n")
         outfile.write(f" Generated at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         outfile.write("=" * 95 + "\n\n")
         outfile.write(
             f"[ Statistics ]\n"
-            f" Collection Mode: {collection_mode}\n"
-            f" Test Status: {test_status}\n"
-            f" Summary Logs: {len(summary_files)}\n"
-            f" Console Logs: {len(console_files)}\n"
-            f" Diagnostic Files: {len(diagnostic_files)}\n"
-            f" FW Upgrade Logs: {len(fw_upgrade_files)}\n"
-            f" TSM4 GUI Logs: {len(tsm4_gui_files)}\n"
+            f" Status: {'PASS' if fail_count == 0 else 'FAIL'}\n"
+            f" Total: {len(summary_files)}\n"
+            f" Pass: {pass_count}\n"
+            f" Fail: {fail_count}\n\n"
         )
-        if has_summary:
-            outfile.write(
-                f" Total Cases: {len(summary_files)}\n"
-                f" Pass: {pass_count}\n"
-                f" Fail: {fail_count}\n\n"
-            )
-        else:
-            outfile.write(
-                " Total Cases: N/A\n"
-                " Pass: N/A\n"
-                " Fail: N/A\n"
-                " Note: No Summary.log was found, so the test result cannot be determined.\n\n"
-            )
 
         outfile.write("[ SFTP Upload Target ]\n")
         outfile.write(f"  - {remote_dir}\n\n")
-
-        if summary_files:
-            outfile.write("[ Summary Logs Included in ZIP ]\n")
-            for summary_f in summary_files:
-                outfile.write(f"  - {os.path.basename(summary_f)}\n")
-            outfile.write("\n")
-
-        if console_files:
-            outfile.write("[ Console Logs Included in ZIP ]\n")
-            for console_f in console_files:
-                outfile.write(f"  - {os.path.basename(console_f)}\n")
-            outfile.write("\n")
 
         if diagnostic_files:
             outfile.write("[ Diagnostic Files Included in ZIP ]\n")
             for diag_f in diagnostic_files:
                 outfile.write(f"  - {os.path.basename(diag_f)}\n")
-            outfile.write("\n")
-
-        if fw_upgrade_files:
-            outfile.write("[ FW Upgrade Logs Included in ZIP ]\n")
-            for fw_log in fw_upgrade_files:
-                outfile.write(f"  - {os.path.basename(fw_log)}\n")
             outfile.write("\n")
 
         if tsm4_gui_files:
@@ -461,48 +319,45 @@ def main():
                 outfile.write(f"  - {os.path.basename(gui_log)}\n")
             outfile.write("\n")
 
+        if screenshot_files:
+            outfile.write("[ GUI Screenshots Included in ZIP ]\n")
+            for ss in screenshot_files:
+                outfile.write(f"  - {os.path.basename(ss)}\n")
+            outfile.write("\n")
+
         if critical_issues:
-            outfile.write("[ CRITICAL ISSUES / COLLECTION NOTES ]\n")
+            outfile.write("[ CRITICAL ISSUES FOUND ]\n")
             for issue in critical_issues:
                 outfile.write(f"!! {issue}\n")
             outfile.write("-" * 50 + "\n\n")
 
-        if has_summary:
-            outfile.write("[ Detailed Summary Logs ]\n")
-            for f_path in summary_files:
-                outfile.write(f"\n>> FILE: {os.path.basename(f_path)}\n")
-                with open(f_path, "r", encoding="utf-8", errors="ignore") as infile:
-                    outfile.write(infile.read())
-                outfile.write("\n" + "=" * 95 + "\n")
-        else:
-            outfile.write("[ Detailed Summary Logs ]\n")
-            outfile.write("No Summary.log files were found. See Console/FW-upgrade logs in this ZIP.\n")
+        outfile.write("[ Detailed Logs ]\n")
+        for f_path in summary_files:
+            outfile.write(f"\n>> FILE: {os.path.basename(f_path)}\n")
+            with open(f_path, "r", encoding="utf-8") as infile:
+                outfile.write(infile.read())
+            outfile.write("\n" + "=" * 95 + "\n")
 
-    log_result(
-        f"Final collect: all-case summary generated, mode={collection_mode}, "
-        f"status={test_status}, pass={pass_count}, fail={fail_count}"
-    )
-
+    log_result(f"Final collect: all-case summary generated, pass={pass_count}, fail={fail_count}")
     log_step(f"Final collect: create ZIP report {zip_name}")
-    files_to_zip = unique_existing_files([all_summary_name] + collected_logs)
+    files_to_zip = [all_summary_name] + summary_files + console_files + diagnostic_files + tsm4_gui_files + screenshot_files
 
-    files_added = 0
     with zipfile.ZipFile(zip_name, "w", zipfile.ZIP_DEFLATED) as zf:
         for log_f in files_to_zip:
             if os.path.exists(log_f):
                 zf.write(log_f, os.path.basename(log_f))
-                files_added += 1
 
-    log_result(f"Final collect: ZIP created, files_included={files_added}")
+    log_result(f"Final collect: ZIP created, files_included={len(files_to_zip)}")
 
-    # all_case_summary.log is included in zip. Upload only zip to SFTP.
+    # all_case_summary.log 已放進 zip，SFTP 只上傳 zip。
     upload_files = [zip_name]
     sftp_ok, uploaded_paths, sftp_error = upload_files_to_sftp(upload_files, remote_dir)
 
-    case_str = "\n\n".join(case_list) if case_list else "No Summary.log files were found, so no case list can be generated."
+    status = "PASS" if fail_count == 0 else "FAIL"
+    case_str = "\n\n".join(case_list)
 
     if critical_issues:
-        issue_highlight = "[ CRITICAL ISSUES / COLLECTION NOTES ]\n"
+        issue_highlight = "[ CRITICAL ISSUES FOUND ]\n"
         for issue in critical_issues:
             issue_highlight += f"!! {issue}\n"
     else:
@@ -515,70 +370,58 @@ def main():
 {diagnostic_summary_text}
 """
     else:
+        diagnostic_summary_text = ""
         diagnostic_summary_block = ""
 
-    summary_highlight = email_file_list(summary_files)
-    console_highlight = email_file_list(console_files)
-    diag_highlight = email_file_list(diagnostic_files)
-    fw_upgrade_highlight = email_file_list(fw_upgrade_files)
-    tsm4_gui_highlight = email_file_list(tsm4_gui_files)
+    diag_highlight = "\n".join(f"  - {os.path.basename(f)}" for f in diagnostic_files) if diagnostic_files else "None"
+    tsm4_gui_highlight = "\n".join(f"  - {os.path.basename(f)}" for f in tsm4_gui_files) if tsm4_gui_files else "None"
+    screenshot_highlight = "\n".join(f"  - {os.path.basename(f)}" for f in screenshot_files) if screenshot_files else "None"
     sftp_uploaded_text = "\n".join(f"  - {p}" for p in uploaded_paths) if uploaded_paths else "None"
 
-    if has_summary:
-        subject = f"[{test_status}] TSB4 Automation Test Report - {fw_version} - {now_str}"
-    else:
-        subject = f"[INCOMPLETE] TSB4 Automation Partial Log Package - {fw_version} - {now_str}"
+    subject = f"[{status}] TSB4 Automation Test Report - {fw_version} - {now_str}"
 
     body = f"""Firmware: {fw_version}
-Test Status: {test_status}
-Collection Mode: {collection_mode}
+Test Status: {status}
 
 [ Critical Issue Highlight ]
 {issue_highlight}
 {diagnostic_summary_block}
-[ Case List ]
 {case_str}
 
 Please download the ZIP report from the following SFTP path:
 {sftp_uploaded_text}
 
-[ Summary Logs Included in ZIP ]
-{summary_highlight}
-
-[ Console Logs Included in ZIP ]
-{console_highlight}
-
 [ Diagnostic Files Included in ZIP ]
 {diag_highlight}
-
-[ FW Upgrade Logs Included in ZIP ]
-{fw_upgrade_highlight}
 
 [ TSM4 GUI Logs Included in ZIP ]
 {tsm4_gui_highlight}
 
+[ GUI Screenshots Included in ZIP ]
+{screenshot_highlight}
+
 [ SFTP Upload ]
 Status: {'PASS' if sftp_ok else 'FAIL'}
 
-All available Summary, Console, FW upgrade, diagnostic, and TSM4 GUI log files are included in the ZIP file.
+All case logs, diagnostic, and TSM4 GUI log files are included in the ZIP file.
 """
 
     email_attachments = [] if sftp_ok else [all_summary_name]
     email_ok, email_error = send_email(subject, body, email_attachments)
 
-    log_step("Final collect: cleanup original Summary/Console/diagnostic/FW-upgrade files")
-    # Clean only source logs in the working directory/tree. Keep target_folder output files.
-    for f in collected_logs:
+    log_step("Final collect: cleanup original Summary/Console/diagnostic files")
+    # 只清理工作目錄下的原始個別檔案；保留 target_folder 內的 all_summary 與 zip。
+    for f in summary_files + console_files + diagnostic_files + tsm4_gui_files + screenshot_files:
         try:
             os.remove(f)
         except Exception:
             pass
 
     log_result(f"Final collect: cleanup completed, local_folder={target_folder}")
-    log_progress(f"SFTP target folder: {remote_dir}")
+    log_progress(f"SFTP 目標資料夾: {remote_dir}")
 
     if sftp_ok and email_ok:
-        log_result(f"Final collect PASS: status={test_status}, mode={collection_mode}, zip={zip_name}")
+        log_result(f"Final collect PASS: status={status}, zip={zip_name}")
         return 0
 
     fail_reasons = []

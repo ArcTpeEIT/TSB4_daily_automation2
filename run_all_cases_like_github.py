@@ -99,14 +99,14 @@ def build_steps() -> list[Step]:
         Step("case4", "Case 4 Cold Reboot Onboarding", py("cases/case4_re_cold_reboot_modular.py", *loops_arg), 300),
         Step("case5", "Case 5 TSM4 GUI Reboot", py("cases/case5_tsm4_restart_modular.py", *loops_arg), 300),
         Step("case6", "Case 6 Reboot Router + Boosters via TSM4 GUI", py("cases/case6_reboot_gw_re_modular.py", *loops_arg), 300),
-        Step("case7", "Case 7 Reset Router + Boosters via TSM4 GUI", py("cases/case7_reset_router_boosters_modular.py", *loops_arg), 300),
+        Step("case7", "Case 7 Reset Router + Boosters via TSM4 GUI", py("cases/case7_reset_router_boosters_modular.py", *loops_arg), 360),
         Step("case8", "Case 8 Reboot Boosters via TSM4 GUI", py("cases/case8_reboot_re_modular.py", *loops_arg), 300),
-        Step("case9", "Case 9 Reset Boosters via TSM4 GUI", py("cases/case9_reset_re_modular.py", *loops_arg), 300),
-        Step("case14", "Case 14 TSM4 WPS + RE WPS Onboarding", py("cases/case14_tsm4_wps_button_re_wps_onboarding_modular.py", *loops_arg), 300),
-        Step("case10", "Case 10 Main WiFi Random SSID/Key Sync", py("cases/case10_main_wifi_modify_ssid_key_sync_check_modular.py", *loops_arg), 150),
+        Step("case9", "Case 9 Reset Boosters via TSM4 GUI", py("cases/case9_reset_re_modular.py", *loops_arg), 360),
+        Step("case10", "Case 10 Main WiFi Random SSID/Key Sync", py("cases/case10_main_wifi_modify_ssid_key_sync_check_modular.py", *loops_arg), 300),
         Step("case11", "Case 11 Guest WiFi Random SSID/Key Sync", py("cases/case11_guest_wifi_modify_ssid_key_sync_check_modular.py", *loops_arg), 300),
         Step("case12", "Case 12 TSM4 Wireless FH Disable/Enable Check", py("cases/case12_tsm4_wireless_fh_disable_enable_sync_check_modular.py", *loops_arg), 300),
-        Step("case13", "Case 13 BH Random SSID Lost Connect Check", py("cases/case13_bh_random_ssid_lost_connect_check_modular.py", *loops_arg), 60),
+        Step("case13", "Case 13 BH Random SSID Lost Connect Check", py("cases/case13_bh_random_ssid_lost_connect_check_modular.py", *loops_arg), 180),
+        Step("case14", "Case 14 TSM4 WPS + RE WPS Onboarding", py("cases/case14_tsm4_wps_button_re_wps_onboarding_modular.py", *loops_arg), 60),
     ]
 
     return [
@@ -114,7 +114,7 @@ def build_steps() -> list[Step]:
         Step("fw_upgrade", "Firmware upgrade", py("Download_fw_then_upgrade.py"), 300, enabled=ENABLE_FW_UPGRADE),
         *selected_cases,
         Step("collect", "Collect all log / diag then email (main)", py("TSB4_collect_zip_upload_sftp_then_email_v8_clean_sftp_email.py"), 60),
-        #Step("collect_bill", "Collect all log / diag then email (bill)", py("TSB4_collect_zip_upload_sftp_then_email_v8_clean_sftp_email_bill.py"), 45),
+        Step("collect_bill", "Collect all log / diag then email (bill)", py("TSB4_collect_zip_upload_sftp_then_email_v8_clean_sftp_email_bill.py"), 45),
         Step("final_factory", "Final TSM4 GUI Factory Default", py("tsm4_gui_factory_default_standalone.py"), 180),
     ]
 

@@ -58,7 +58,6 @@ _force_utf8_stdio()
 GATEWAY_URL = "http://192.168.0.1/"
 WAIT_TIMEOUT = 30
 ROUTER_USERNAME = "admin"
-#ROUTER_PASSWORD = "5nvvnaf3vr"
 ROUTER_PASSWORD = "jum8gf2zry"
 CHROME_DRIVER_PATH = str(Path(__file__).resolve().parent / "chromedriver.exe")
 
@@ -227,18 +226,19 @@ def create_chrome_driver(chromedriver_path: str, headless: bool) -> webdriver.Ch
     options.add_argument("--no-default-browser-check")
     options.add_argument("--disable-dev-shm-usage")
 
-    if os.path.exists(chromedriver_path):
-        log(f"[Chrome] 使用本地 chromedriver: {chromedriver_path}")
+    try:
+        from webdriver_manager.chrome import ChromeDriverManager
+        driver_path = ChromeDriverManager().install()
+        log(f"[Chrome] 使用 webdriver-manager: {driver_path}")
         log(f"[Chrome] headless mode: {headless}")
-        service = Service(executable_path=chromedriver_path)
-    else:
-        try:
-            from webdriver_manager.chrome import ChromeDriverManager
-            driver_path = ChromeDriverManager().install()
-            log(f"[Chrome] 使用 webdriver-manager 下載: {driver_path}")
+        service = Service(executable_path=driver_path)
+    except Exception as e:
+        log(f"[Chrome] webdriver-manager 失敗: {e}，嘗試本地 chromedriver")
+        if os.path.exists(chromedriver_path):
+            log(f"[Chrome] 使用本地 chromedriver: {chromedriver_path}")
             log(f"[Chrome] headless mode: {headless}")
-            service = Service(executable_path=driver_path)
-        except Exception as e:
+            service = Service(executable_path=chromedriver_path)
+        else:
             raise FileNotFoundError(f"找不到 chromedriver 且 webdriver-manager 失敗: {e}") from e
 
     return webdriver.Chrome(service=service, options=options)
