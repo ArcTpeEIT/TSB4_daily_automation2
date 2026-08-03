@@ -17,37 +17,29 @@ jobs:
         continue-on-error: true
         run: python run_all_cases_like_github.py --only initial_wait,fw_upgrade
 
-      - name: 3. 執行測試 Case1
+      - name: 3. 執行測試 Case1, Case2
         continue-on-error: true
-        run: python run_all_cases_like_github.py --only case1
+        run: python run_all_cases_like_github.py --only case1,case2
         
-      - name: 4. 執行測試 Case2, Case3, Case4
+      - name: 4. 執行測試 Case3, Case4
         continue-on-error: true
-        run: python run_all_cases_like_github.py --only case2,case3,case4
+        run: python run_all_cases_like_github.py --only case3,case4
 
-      - name: 5. 執行測試 Case5, Case6
+      - name: 5. 執行測試 Case5
         continue-on-error: true
-        run: python run_all_cases_like_github.py --only case5,case6
+        run: python run_all_cases_like_github.py --only case5
 
-      - name: 6. 執行測試 Case7
+      - name: 6. 執行測試 Case6 ~ Case9
         continue-on-error: true
-        run: python run_all_cases_like_github.py --only case7
+        run: python run_all_cases_like_github.py --only case6,case7,case8,case9
+    
+      - name: 7. 執行測試 Case10, Case11
+        continue-on-error: true
+        run: python run_all_cases_like_github.py --only case10,case11
 
-      - name: 7. 執行測試 Case8
+      - name: 8. 執行測試 case12 ~ Case14
         continue-on-error: true
-        run: python run_all_cases_like_github.py --only case8
-
-      - name: 8. 執行測試 Case9
-        continue-on-error: true
-        run: python run_all_cases_like_github.py --only case9
-
-      - name: 8.1. 執行測試 Case14
-        continue-on-error: true
-        run: python run_all_cases_like_github.py --only case14
-        
-      - name: 9. 執行測試 Case10, Case11, case12,Case13
-        continue-on-error: true
-        run: python run_all_cases_like_github.py --only case10,case11,case12,case13
+        run: python run_all_cases_like_github.py --only case12,case13,case14
 
       - name: 10. Collect All log 
         if: always()
