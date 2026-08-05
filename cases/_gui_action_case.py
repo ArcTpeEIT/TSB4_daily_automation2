@@ -148,9 +148,10 @@ def execute_one_backhaul_test(
             _precheck_threshold,
             max_total_limit=_precheck_max_limit,
             write_summary_on_pass=False,
+            write_summary_on_fail=False,
         )
         if not precheck_ok:
-            fail_reason = f"ETH BH→WiFi BH 切換後等待 Booster 連回 TSM4 超時 {_precheck_max_limit}s"
+            fail_reason = f"Booster 未連回 TSM4 ({_precheck_max_limit}s)"
             write_summary(summary_loop_display(str(loop), interface_name), interface_name, "N/A", "FAIL", fail_reason)
             log_result(f"Loop {loop} {interface_name}: FAIL, Booster 未能透過 {backhaul_name} 連線，跳過 reboot 測試")
             log_progress(f"!! {interface_name} Pre-Check FAIL，Booster 未連上 {backhaul_name}，停止測試 !!")

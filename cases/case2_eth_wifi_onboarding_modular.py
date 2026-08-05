@@ -3,8 +3,8 @@
 """
 case2_eth_wifi_onboarding_modular.py
 
-ETH BH / WiFi BH onboarding check.
-這版不再 import 大型 common.py，而是使用 testlib 小模組。
+ETH BH → WiFi BH → ETH BH onboarding check.
+每個 loop 依序執行三段 BH 切換並各自驗證 onboarding。
 """
 import argparse
 import os
@@ -30,6 +30,7 @@ def parse_args():
     parser.add_argument("--relay-port", default=cfg.RELAY_PORT)
     parser.add_argument("--case2-eth-init-wait", type=int, default=cfg.CASE2_ETH_ONBOARDING_INIT_WAIT_TIME)
     parser.add_argument("--case2-wifi-init-wait", type=int, default=cfg.CASE2_WIFI_ONBOARDING_INIT_WAIT_TIME)
+    parser.add_argument("--case2-eth-back-init-wait", type=int, default=cfg.CASE2_ETH_BACK_ONBOARDING_INIT_WAIT_TIME)
     parser.add_argument("--case2-max-total-limit", type=int, default=cfg.CASE2_MAX_TOTAL_LIMIT)
     parser.add_argument("--pass-cooldown-time", type=int, default=cfg.PASS_COOLDOWN_TIME)
     parser.add_argument("--loop-eth-restore-wait", type=int, default=cfg.LOOP_ETH_RESTORE_WAIT)
@@ -46,6 +47,7 @@ def apply_args(args):
     cfg.RELAY_PORT = args.relay_port
     cfg.CASE2_ETH_ONBOARDING_INIT_WAIT_TIME = args.case2_eth_init_wait
     cfg.CASE2_WIFI_ONBOARDING_INIT_WAIT_TIME = args.case2_wifi_init_wait
+    cfg.CASE2_ETH_BACK_ONBOARDING_INIT_WAIT_TIME = args.case2_eth_back_init_wait
     cfg.CASE2_MAX_TOTAL_LIMIT = args.case2_max_total_limit
     cfg.PASS_COOLDOWN_TIME = args.pass_cooldown_time
     cfg.LOOP_ETH_RESTORE_WAIT = args.loop_eth_restore_wait
@@ -97,6 +99,23 @@ def run_test():
                 log_progress(f"LOOP {loop} WiFi BH FAIL，停止測試。")
                 return 1
 
+            log_separator(f"LOOP {loop} - ETH BH (回切) 測試開始")
+            control_relay("on")
+            duration_start_time = time.time()
+            receive_monitor(cfg.RELAY_SETTLE_TIME)
+
+            if not run_polling_or_recover(
+                loop,
+                "ETH BH",
+                cfg.CASE2_ETH_BACK_ONBOARDING_INIT_WAIT_TIME,
+                cfg.ONBOARDING_THRESHOLD,
+                "ETH_BH_Back_Fail",
+                duration_start_time,
+                max_total_limit=cfg.CASE2_MAX_TOTAL_LIMIT,
+            ):
+                log_progress(f"LOOP {loop} ETH BH (回切) FAIL，停止測試。")
+                return 1
+
             log_progress(f"LOOP {loop} PASS。")
             restore_eth_backhaul_between_loops(loop)
 
@@ -115,7 +134,7 @@ def run_test():
 
 
 if __name__ == "__main__":
-    cfg.TEST_CASE_NAME = "case2_Standard Onboarding"
+    cfg.TEST_CASE_NAME = "case2_ETH-WiFi-ETH BH Onboarding"
     args = parse_args()
     apply_args(args)
     init_log_filenames()
