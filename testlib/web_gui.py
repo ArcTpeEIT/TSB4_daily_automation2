@@ -115,7 +115,7 @@ def navigate_to_boosters(driver):
     boosters_btn = wait.until(EC.presence_of_element_located((By.XPATH, cfg.XPATH_WIFI_BOOSTERS)))
     _js_click(driver, boosters_btn, wait_after=1)
     wait_loading_done(wait)
-    receive_monitor(1)
+    receive_monitor(3)
     log_result("Web GUI: Wi-Fi Boosters page opened")
 
 
@@ -272,7 +272,8 @@ def trigger_web_action(action_xpath, action_label, passed_driver=None):
             navigate_to_boosters(driver)
             log_step(f"Web GUI action: click action button ({action_label})")
             log_progress(f"觸發 {action_label} 動作...")
-            action_btn = wait.until(EC.presence_of_element_located((By.XPATH, action_xpath)))
+            action_btn = wait.until(EC.element_to_be_clickable((By.XPATH, action_xpath)))
+            save_gui_screenshot(driver, f"{cfg.TEST_CASE_NAME}_{action_label.replace(' ', '_').replace('+', '_')}_before_click")
             _js_click(driver, action_btn, wait_after=1)
 
             log_step(f"Web GUI action: confirm YES ({action_label})")

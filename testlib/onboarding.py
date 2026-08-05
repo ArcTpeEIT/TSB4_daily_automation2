@@ -12,9 +12,11 @@ STATE_END_MARKER = "__ARC_ONBOARDING_STATE_END__"
 IFCONFIG_BEGIN_MARKER = "__ARC_IFCONFIG_BEGIN__"
 IFCONFIG_END_MARKER = "__ARC_IFCONFIG_END__"
 
-# 【新增常數】用於包裝與定位 MAP Onboarding Done UCI 數值的邊界
 MAP_BEGIN_MARKER = "__ARC_MAP_ONBOARDING_BEGIN__"
 MAP_END_MARKER = "__ARC_MAP_ONBOARDING_END__"
+
+IP_BEGIN_MARKER = "__ARC_IP_BEGIN__"
+IP_END_MARKER = "__ARC_IP_END__"
 
 _LAST_SSH_FAIL_LOG_TIME = 0
 
@@ -78,17 +80,19 @@ def _monitor_wait(wait_seconds, ser=None):
     return receive_monitor(wait_seconds, ser)
 
 
-# 【修改函式】將失敗原因的組合邏輯擴充為三維判斷
-def build_onboarding_fail_reason(has_onboarding, has_ping, has_map_uci, prefix=""):
+def build_onboarding_fail_reason(has_onboarding, has_ping, has_map_uci, has_ip=None, prefix=""):
     reasons = []
     if not has_onboarding:
         reasons.append("Onboarding State Fail")
     if not has_ping:
-        reasons.append("Ping Fail")
+        if has_ip is False:
+            reasons.append("No IP (br-lan)")
+        else:
+            reasons.append("Ping Fail")
     if not has_map_uci:
-        reasons.append("repacd UCI Done Fail")
+        reasons.append("repacd.MAPConfig.OnboardingDone Fail")
     if not reasons:
-        reasons.append("Logic Timeout")
+        reasons.append("Onboarding Timeout (條件均通過，但未達穩定閾值)")
     reason = " + ".join(reasons)
     return f"{prefix}: {reason}" if prefix else reason
 
@@ -99,7 +103,6 @@ def get_elapsed_duration(duration_start_time, fallback_start_time, fallback_init
     return round(time.time() - fallback_start_time + fallback_init_wait_time, 2)
 
 
-# 【修改指令】在 Serial 輪詢中追加 uci get 與邊界包裹
 def build_onboarding_poll_cmd(ping_count=2):
     """Build a minimal serial onboarding polling command."""
     return (
@@ -109,11 +112,13 @@ def build_onboarding_poll_cmd(ping_count=2):
         f"echo {MAP_BEGIN_MARKER}; "
         "uci get repacd.MAPConfig.OnboardingDone 2>/dev/null; "
         f"echo {MAP_END_MARKER}; "
+        f"echo {IP_BEGIN_MARKER}; "
+        "ip addr show br-lan 2>/dev/null | grep 'inet ' | grep -o '[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*' | head -1; "
+        f"echo {IP_END_MARKER}; "
         f"ping 192.168.0.1 -c {int(ping_count)}\n"
     ).encode("utf-8")
 
 
-# 【修改指令】在 SSH 輪詢中同步追加 uci get 與邊界包裹
 def build_ssh_onboarding_cmd(ping_count=2):
     """Build an SSH onboarding polling command with the same state markers."""
     return (
@@ -123,6 +128,9 @@ def build_ssh_onboarding_cmd(ping_count=2):
         f"echo {MAP_BEGIN_MARKER}; "
         "uci get repacd.MAPConfig.OnboardingDone 2>/dev/null; "
         f"echo {MAP_END_MARKER}; "
+        f"echo {IP_BEGIN_MARKER}; "
+        "ip addr show br-lan 2>/dev/null | grep 'inet ' | grep -o '[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*' | head -1; "
+        f"echo {IP_END_MARKER}; "
         f"ping 192.168.0.1 -c {int(ping_count)}"
     )
 
@@ -201,6 +209,36 @@ def extract_map_config_uci_value(output):
     return ""
 
 
+def extract_ip_value(output):
+    """Extract br-lan IPv4 address from polling output (between IP markers)."""
+    if not output:
+        return ""
+    lines = [line.strip() for line in output.replace("\r", "").split("\n")]
+    collecting = False
+    for line in lines:
+        if line == IP_BEGIN_MARKER:
+            collecting = True
+            continue
+        if line == IP_END_MARKER:
+            break
+        if collecting and line:
+            if re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", line):
+                return line
+    return ""
+
+
+_NO_IP_ADDRESSES = {"192.168.1.253"}
+
+def parse_has_ip(output):
+    """Return True if br-lan has a valid DHCP-assigned IP, False if empty or default fallback IP, None if marker not present."""
+    if IP_BEGIN_MARKER not in str(output):
+        return None
+    ip = extract_ip_value(output).strip()
+    if not ip or ip in _NO_IP_ADDRESSES:
+        return False
+    return True
+
+
 def parse_onboarding_state(output):
     """Return True when /tmp/arc_onboarding_state reports exactly 'done'."""
     return extract_onboarding_state_value(output).strip().lower() == "done"
@@ -266,10 +304,12 @@ def final_onboarding_check(ser, interface_name):
 
     has_onboarding = parse_onboarding_state(output)
     has_ping = parse_ping_ok(output)
-    has_map_uci = parse_map_config_uci_ok(output)  # 【新條件判定】
-    
+    has_map_uci = parse_map_config_uci_ok(output)
+    has_ip = parse_has_ip(output)
+
     state_value = extract_onboarding_state_value(output)
-    map_uci_value = extract_map_config_uci_value(output)  # 【新條件提取】
+    map_uci_value = extract_map_config_uci_value(output)
+    ip_value = extract_ip_value(output)
 
     log_details("-" * 50)
     log_details("[Final Check]:")
@@ -277,12 +317,13 @@ def final_onboarding_check(ser, interface_name):
     if reason != "None":
         log_details(f"  > Check Reason     : {reason}")
     log_details(f"  > Onboarding State: {state_value}")
-    log_details(f"  > repacd MAP Done : {map_uci_value}")  # 【印出資訊】
+    log_details(f"  > repacd MAP Done : {map_uci_value}")
+    log_details(f"  > IP (br-lan)     : {ip_value if ip_value else ('N/A' if has_ip is None else 'No IP')}")
     log_details(f"  > Ping GW         : {'SUCCESS' if has_ping else 'FAIL/TIMEOUT'}")
     log_details("-" * 50)
 
     # 三維指標必須全部為 True 才判定最終過關
-    return has_onboarding and has_ping and has_map_uci, has_onboarding, has_ping, has_map_uci
+    return has_onboarding and has_ping and has_map_uci, has_onboarding, has_ping, has_map_uci, has_ip
 
 
 def run_rd_poll_debug_dump(ser, interface_name, round_index, poll_status="UNKNOWN"):
@@ -335,7 +376,7 @@ def run_rd_poll_debug_dump(ser, interface_name, round_index, poll_status="UNKNOW
     return marker_text
 
 
-def poll_booster_console(loop_str, interface_name, init_wait_time=None, threshold=None, max_total_limit=None, duration_start_time=None, write_summary_on_pass=True, show_loop_number=False):
+def poll_booster_console(loop_str, interface_name, init_wait_time=None, threshold=None, max_total_limit=None, duration_start_time=None, write_summary_on_pass=True, write_summary_on_fail=True, show_loop_number=False):
     init_wait_time = cfg.INIT_WAIT_TIME if init_wait_time is None else init_wait_time
     threshold = cfg.ONBOARDING_THRESHOLD if threshold is None else threshold
     max_total_limit = cfg.NORMAL_MAX_TOTAL_LIMIT if max_total_limit is None else max_total_limit
@@ -361,7 +402,7 @@ def poll_booster_console(loop_str, interface_name, init_wait_time=None, threshol
             discover_ssh_host_by_serial(ser, log_prefix="[ONBOARDING][SSH]")
 
         consecutive_count = 0
-        last_fail_reason = "Logic Timeout"
+        last_fail_reason = "Onboarding Timeout: 末次輪詢條件達標，但連續次數不足"
         saw_valid_polling_output = False
         poll_start_time = time.time()
         poll_round = 0
@@ -380,12 +421,13 @@ def poll_booster_console(loop_str, interface_name, init_wait_time=None, threshol
 
                 has_onboarding = parse_onboarding_state(output)
                 has_ping = parse_ping_ok(output)
-                has_map_uci = parse_map_config_uci_ok(output)  # 【新條件判定】
-                
+                has_map_uci = parse_map_config_uci_ok(output)
+                has_ip = parse_has_ip(output)
+
                 state_value = extract_onboarding_state_value(output)
-                map_uci_value = extract_map_config_uci_value(output)  # 【新條件提取】
-                
-                # 【修改判定狀態】三維全過才算 PASS
+                map_uci_value = extract_map_config_uci_value(output)
+                ip_value = extract_ip_value(output)
+
                 poll_status = "PASS" if (has_onboarding and has_ping and has_map_uci) else "FAIL"
 
                 log_details("-" * 50)
@@ -395,14 +437,15 @@ def poll_booster_console(loop_str, interface_name, init_wait_time=None, threshol
                 if reason != "None":
                     log_details(f"  > Check Reason     : {reason}")
                 log_details(f"  > Onboarding State: {state_value}")
-                log_details(f"  > repacd MAP Done : {map_uci_value}")  # 【印出資訊】
+                log_details(f"  > repacd MAP Done : {map_uci_value}")
+                log_details(f"  > IP (br-lan)     : {ip_value if ip_value else ('N/A' if has_ip is None else 'No IP')}")
                 log_details(f"  > Ping GW         : {'SUCCESS' if has_ping else 'FAIL/TIMEOUT'}")
                 log_details(f"  > Check Time      : {check_elapsed:.2f}s")
 
                 if output.strip():
                     saw_valid_polling_output = True
                     if not (has_onboarding and has_ping and has_map_uci):
-                        last_fail_reason = build_onboarding_fail_reason(has_onboarding, has_ping, has_map_uci)
+                        last_fail_reason = build_onboarding_fail_reason(has_onboarding, has_ping, has_map_uci, has_ip=has_ip)
 
                 # 【修改成功判定】
                 if has_onboarding and has_ping and has_map_uci:
@@ -438,10 +481,9 @@ def poll_booster_console(loop_str, interface_name, init_wait_time=None, threshol
                     _monitor_wait(cfg.PASS_COOLDOWN_TIME, ser)
                     log_progress(f"[{cfg.BOOSTER_PORT} - {interface_name}] 冷卻完成，執行最後一次 onboarding 確認...")
 
-                    # 【更新最終防線確認】改為接收 4 個回傳值
-                    final_ok, final_has_onboarding, final_has_ping, final_has_map_uci = final_onboarding_check(ser, interface_name)
+                    final_ok, final_has_onboarding, final_has_ping, final_has_map_uci, final_has_ip = final_onboarding_check(ser, interface_name)
                     if not final_ok:
-                        last_fail_reason = build_onboarding_fail_reason(final_has_onboarding, final_has_ping, final_has_map_uci, prefix="Final Check Fail")
+                        last_fail_reason = build_onboarding_fail_reason(final_has_onboarding, final_has_ping, final_has_map_uci, has_ip=final_has_ip, prefix="Final Check Fail")
                         log_result(f"{interface_name}: FAIL, {last_fail_reason}")
                         log_progress(f"[{cfg.BOOSTER_PORT} - {interface_name}] {last_fail_reason}，計數器歸零並重新開始 polling。")
                         consecutive_count = 0
@@ -470,8 +512,9 @@ def poll_booster_console(loop_str, interface_name, init_wait_time=None, threshol
     except Exception as e:
         log_result(f"{interface_name}: FAIL, COM Error: {e}")
         log_progress(f"[{cfg.BOOSTER_PORT}] 無法開啟 Serial Port: {e}")
-        _loop_display = loop_str if show_loop_number else summary_loop_display(loop_str, interface_name)
-        write_summary(_loop_display, interface_name, "N/A", "FAIL", "COM Error")
+        if write_summary_on_fail:
+            _loop_display = loop_str if show_loop_number else summary_loop_display(loop_str, interface_name)
+            write_summary(_loop_display, interface_name, "N/A", "FAIL", f"COM Error: {e}")
         if close_after_use and ser is not None:
             try:
                 ser.close()
@@ -482,9 +525,10 @@ def poll_booster_console(loop_str, interface_name, init_wait_time=None, threshol
     log_result(f"{interface_name}: FAIL, timeout, max_total_limit={max_total_limit}s")
     log_progress(f"[{cfg.BOOSTER_PORT}] >>> 輪詢超時 (FAIL, MAX_TOTAL_LIMIT={max_total_limit} 秒)！ <<<")
     if not locals().get("saw_valid_polling_output", False):
-        last_fail_reason = "No Valid Onboarding Output"
-    _loop_display = loop_str if show_loop_number else summary_loop_display(loop_str, interface_name)
-    write_summary(_loop_display, interface_name, "Timeout", "FAIL", last_fail_reason)
+        last_fail_reason = f"No Valid Onboarding Output ({max_total_limit}s timeout, Booster 無回應)"
+    if write_summary_on_fail:
+        _loop_display = loop_str if show_loop_number else summary_loop_display(loop_str, interface_name)
+        write_summary(_loop_display, interface_name, f"Timeout({max_total_limit}s)", "FAIL", last_fail_reason)
     if close_after_use and ser is not None:
         try:
             ser.close()

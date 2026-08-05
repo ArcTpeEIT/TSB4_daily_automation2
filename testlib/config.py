@@ -69,7 +69,8 @@ RD_POLL_DEBUG_SLICE_TIME = 0.25  # How often Python polls for the done marker (s
 # 1 iw command + 3 RD scripts. Do not add sleeps; polling wait is in onboarding.py.
 RD_POLL_DEBUG_COMMANDS = [
     "iw dev ath1 link",
-    "DFS_CAC_chk.sh",
+    #"DFS_CAC_chk.sh",
+    "ps |grep wsplcd",
     "WiFi_inf_ChOnOff.sh",
     "chk_Status.sh",
 ]
@@ -145,10 +146,11 @@ CASE1_NORMAL_MAX_TOTAL_LIMIT          = RESET_MAX_TOTAL_LIMIT
 # =============================================================================
 # CASE 2 – ETH / WiFi BH Switch
 # =============================================================================
-CASE2_ETH_ONBOARDING_INIT_WAIT_TIME  = 20
-CASE2_WIFI_ONBOARDING_INIT_WAIT_TIME = 100
-CASE2_ONBOARDING_INIT_WAIT_TIME      = CASE2_ETH_ONBOARDING_INIT_WAIT_TIME  # Backward-compat
-CASE2_MAX_TOTAL_LIMIT                = NORMAL_MAX_TOTAL_LIMIT
+CASE2_ETH_ONBOARDING_INIT_WAIT_TIME      = 20
+CASE2_WIFI_ONBOARDING_INIT_WAIT_TIME     = 80
+CASE2_ETH_BACK_ONBOARDING_INIT_WAIT_TIME = 60   # WiFi BH -> ETH BH switch-back
+CASE2_ONBOARDING_INIT_WAIT_TIME          = CASE2_ETH_ONBOARDING_INIT_WAIT_TIME  # Backward-compat
+CASE2_MAX_TOTAL_LIMIT                    = NORMAL_MAX_TOTAL_LIMIT
 
 # =============================================================================
 # CASE 3 – RE Warm Reboot
@@ -210,7 +212,7 @@ REBOOT_INIT_WAIT_TIME                = 120  # Backward-compat
 CASE6_ETH_ONBOARDING_INIT_WAIT_TIME  = 90
 CASE6_WIFI_ONBOARDING_INIT_WAIT_TIME = 220  # (was 240)
 CASE6_MAX_TOTAL_LIMIT                = NORMAL_MAX_TOTAL_LIMIT
-CASE6_WIFI_PRECHECK_INIT_WAIT        = 150   # Wait after relay OFF for booster to switch to WiFi BH
+CASE6_WIFI_PRECHECK_INIT_WAIT        = 180   # Wait after relay OFF for booster to switch to WiFi BH
 CASE6_WIFI_PRECHECK_THRESHOLD        = 1    # Only need 1 consecutive success to confirm WiFi BH up
 CASE6_WIFI_PRECHECK_MAX_LIMIT        = 540  # Max wait for pre-check (s)
 
@@ -227,9 +229,9 @@ RESET_INIT_WAIT_TIME                 = 180  # Backward-compat
 CASE7_ETH_ONBOARDING_INIT_WAIT_TIME  = 230
 CASE7_WIFI_ONBOARDING_INIT_WAIT_TIME = 500
 CASE7_MAX_TOTAL_LIMIT                = RESET_MAX_TOTAL_LIMIT
-CASE7_WIFI_PRECHECK_INIT_WAIT        = 150   # Reset cases take longer to reconnect WiFi BH
+CASE7_WIFI_PRECHECK_INIT_WAIT        = 320   # Reset cases take longer to reconnect WiFi BH
 CASE7_WIFI_PRECHECK_THRESHOLD        = 1
-CASE7_WIFI_PRECHECK_MAX_LIMIT        = 600
+CASE7_WIFI_PRECHECK_MAX_LIMIT        = 900
 
 # =============================================================================
 # CASE 8 – GW Reboot Single RE
@@ -247,9 +249,9 @@ CASE8_WIFI_PRECHECK_MAX_LIMIT        = 540
 CASE9_ETH_ONBOARDING_INIT_WAIT_TIME  = 180  # (was 201)
 CASE9_WIFI_ONBOARDING_INIT_WAIT_TIME = 450  # (was 491)
 CASE9_MAX_TOTAL_LIMIT                = RESET_MAX_TOTAL_LIMIT
-CASE9_WIFI_PRECHECK_INIT_WAIT        = 150   # Reset cases take longer to reconnect WiFi BH
+CASE9_WIFI_PRECHECK_INIT_WAIT        = 320   # Reset cases take longer to reconnect WiFi BH
 CASE9_WIFI_PRECHECK_THRESHOLD        = 1
-CASE9_WIFI_PRECHECK_MAX_LIMIT        = 600
+CASE9_WIFI_PRECHECK_MAX_LIMIT        = 900
 
 # =============================================================================
 # CASE 10 – Main WiFi SSID / Key Modify
