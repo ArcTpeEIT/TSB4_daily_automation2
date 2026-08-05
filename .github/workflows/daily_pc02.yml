@@ -33,13 +33,13 @@ jobs:
         continue-on-error: true
         run: python run_all_cases_like_github.py --only case6,case7,case8,case9
     
-      - name: 7. 執行測試 Case10, Case11
-        continue-on-error: true
-        run: python run_all_cases_like_github.py --only case10,case11
-
-      - name: 8. 執行測試 case12 ~ Case14
+      - name: 7. 執行測試 Case12 ~ Case14
         continue-on-error: true
         run: python run_all_cases_like_github.py --only case12,case13,case14
+
+      - name: 8. 執行測試 case10, Case11
+        continue-on-error: true
+        run: python run_all_cases_like_github.py --only case10,case11
 
       - name: 10. Collect All log 
         if: always()
