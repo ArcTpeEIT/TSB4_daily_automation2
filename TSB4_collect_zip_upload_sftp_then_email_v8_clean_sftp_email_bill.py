@@ -46,10 +46,10 @@ def send_email(subject, body, attachments=None):
     # receiver = 'bill_chen@arcadyan.com'
     receivers = [
     'bill_chen@arcadyan.com',
-    #'zach_chu@arcadyan.com',
-    #'chocho_chen@arcadyan.com',
-    #'dennis_chiang@arcadyan.com',
-    #'quantum_wu@arcadyan.com',    
+    'zach_chu@arcadyan.com',
+    'chocho_chen@arcadyan.com',
+    'dennis_chiang@arcadyan.com',
+    'quantum_wu@arcadyan.com',    
     ]
     app_password = 'apthsnwksezkwtbo'
 
@@ -144,20 +144,34 @@ def upload_files_to_sftp(local_files, remote_dir):
 
 
 CASE_DESCRIPTIONS = {
-    "case1_Factory Default Onboarding": "Restore factory default, then verify GW/RE can complete onboarding again.",
-    "case2_Standard Onboarding": "Run normal onboarding and verify the RE can join the Mesh network.",
-    "case3_RE Warm Reboot Onboarding": "Warm reboot the RE, then verify onboarding or Mesh recovery works normally.",
-    "case4_RE Cold Reboot Onboarding": "Cold reboot or power-cycle the RE, then verify it can reconnect and complete onboarding.",
-    "case5_TSM4 Restart Onboarding": "Restart TSM4 service/process, then verify onboarding and device management remain normal.",
-    "case6_Reboot GW+RE Onboarding": "Reboot both GW and RE, then verify the Mesh topology can be restored.",
-    "case7_Reset Router+Boosters Onboarding": "Reset Router/GW and Boosters/RE, then verify onboarding can rebuild the Mesh network.",
-    "case8_Reboot RE Onboarding": "Reboot only the RE, then verify it can reconnect to the GW automatically.",
-    "case9_Reset RE Onboarding": "Reset only the RE, then verify it can onboard again.",
-    "case10_Main_WiFi_Random_SSID_Key_Sync_SpecialChar": "Set random Main Wi-Fi SSID/key with special characters and verify sync from GW to RE.",
-    "case11_Guest_WiFi_Random_SSID_Key_Sync_SpecialChar": "Set random Guest Wi-Fi SSID/key with special characters and verify sync from GW to RE.",
-    "case12_TSM4_Wireless_FH_Disable_Enable_Check": "Disable/enable Wireless from TSM4 GUI and verify Booster FH 2.4G/5G UCI state syncs correctly.",
-    "case13_BH_Random_SSID_Lost_Connect_Check": "Randomly change Backhaul SSID and verify RE disconnection/reconnection behavior.",
-    "case14_TSM4_WPS_RE_Onboarding": "Trigger TSM4 5GHz WPS push button and run RE WPS PBC command, then verify WiFi BH onboarding completes.",
+    "case1_Factory Default Onboarding":
+        "Factory reset the Booster to default settings via serial command, then verify it re-onboards via ETH BH and WiFi BH.",
+    "case2_ETH-WiFi-ETH BH Onboarding":
+        "Verify Booster completes onboarding via ETH BH, then switch to WiFi BH and verify onboarding recovers, then switch back to ETH BH and verify onboarding recovers again.",
+    "case3_RE Warm Reboot Onboarding":
+        "Send software reboot command to Booster via serial console (warm reboot), then verify it reconnects and completes onboarding via ETH BH and WiFi BH.",
+    "case4_RE Cold Reboot Onboarding":
+        "Power-cycle the Booster by cutting and restoring power (cold reboot), then verify it reconnects and completes onboarding via ETH BH and WiFi BH.",
+    "case5_TSM4 Restart Onboarding":
+        "Trigger full TSM4 reboot via GUI Restart button, then verify the Booster reconnects and completes onboarding after TSM4 comes back online.",
+    "case6_Reboot GW+RE Onboarding":
+        "Trigger simultaneous reboot of GW and Booster via TSM4 GUI Mesh page 'Reboot GW+RE' button, then verify Mesh topology restores and onboarding completes.",
+    "case7_Reset Router+Boosters Onboarding":
+        "Factory reset both GW and Booster via TSM4 GUI Mesh page 'Reset Router+Boosters' button, then verify Mesh network rebuilds from scratch and onboarding completes.",
+    "case8_Reboot RE Onboarding":
+        "Trigger Booster reboot via TSM4 GUI Mesh page 'Reboot RE' button, then verify the Booster reconnects and completes onboarding via ETH BH and WiFi BH.",
+    "case9_Reset RE Onboarding":
+        "Factory reset the Booster via TSM4 GUI Mesh page 'Reset RE' button, then verify the Booster re-onboards to the Mesh network via ETH BH and WiFi BH.",
+    "case10_Main_WiFi_Random_SSID_Key_Sync_SpecialChar":
+        "Change Main Wi-Fi SSID to a random value and password to a random value with special characters via TSM4 GUI, then verify the settings sync correctly from GW to Booster.",
+    "case11_Guest_WiFi_Random_SSID_Key_Sync_SpecialChar":
+        "Change Guest Wi-Fi SSID to a random value and password to a random value with special characters via TSM4 GUI, then verify the settings sync correctly from GW to Booster.",
+    "case12_TSM4_Wireless_FH_Disable_Enable_Sync_Check":
+        "Disable Main Wi-Fi (Fronthaul) from TSM4 GUI and verify Booster BH SSID changes to BH-prefixed pattern; re-enable Main Wi-Fi and verify Booster BH SSID restores correctly.",
+    "case13_BH_Random_SSID_Lost_Connect_Check":
+        "Randomly change the Backhaul SSID on TSM4 and verify the Booster detects the disconnection and successfully reconnects with the new BH SSID.",
+    "case14_TSM4_WPS_RE_Onboarding":
+        "Trigger TSM4 5GHz WPS push button from GUI and run WPS PBC command on Booster simultaneously, then verify WiFi BH onboarding completes via WPS pairing.",
 }
 
 
@@ -273,10 +287,29 @@ def main():
             if diagnostic_summary:
                 latest_diagnostic_summary = diagnostic_summary
 
-            for line in lines:
+            for i, line in enumerate(lines):
                 parts = [p.strip().upper() for p in line.split("|")]
                 if len(parts) >= 5 and ("FAIL" in parts or "TIMEOUT" in parts):
-                    critical_issues.append(f"[ISSUE in {fname}]: {line.strip()}")
+                    issue_text = line.strip()
+                    for j in range(i + 1, min(i + 6, len(lines))):
+                        next_line = lines[j].strip()
+                        if not next_line:
+                            continue
+                        if next_line.startswith("Fail_Reason"):
+                            if next_line.startswith("Fail_Reason:"):
+                                issue_text += f"\n    {next_line}"
+                            else:
+                                # "Fail_Reason ( ctx )" + reason on next line (case12 with status)
+                                issue_text += f"\n    {next_line}"
+                                for k in range(j + 1, min(j + 3, len(lines))):
+                                    reason_line = lines[k].strip()
+                                    if reason_line and "|" not in reason_line and not reason_line.startswith(("=", "-", "備註")):
+                                        issue_text += f"\n    {reason_line}"
+                                        break
+                            break
+                        if "|" in next_line or next_line.startswith(("=", "-")):
+                            break
+                    critical_issues.append(f"[ISSUE in {fname}]: {issue_text}")
                     has_real_fail = True
 
             if lines:
@@ -385,7 +418,7 @@ Test Status: {status}
 
 [ Critical Issue Highlight ]
 {issue_highlight}
-{diagnostic_summary_block}
+
 {case_str}
 
 Please download the ZIP report from the following SFTP path:
@@ -396,14 +429,6 @@ Please download the ZIP report from the following SFTP path:
 
 [ TSM4 GUI Logs Included in ZIP ]
 {tsm4_gui_highlight}
-
-[ GUI Screenshots Included in ZIP ]
-{screenshot_highlight}
-
-[ SFTP Upload ]
-Status: {'PASS' if sftp_ok else 'FAIL'}
-
-All case logs, diagnostic, and TSM4 GUI log files are included in the ZIP file.
 """
 
     email_attachments = [] if sftp_ok else [all_summary_name]
