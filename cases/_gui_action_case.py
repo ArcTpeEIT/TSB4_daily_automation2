@@ -141,6 +141,7 @@ def execute_one_backhaul_test(
             f"max_limit={_precheck_max_limit}s)"
         )
         log_progress(f"STEP: 確認 Booster 已透過 {backhaul_name} 連線，才進行 reboot 測試...")
+        _precheck_reason_out = []
         precheck_ok = poll_booster_console(
             str(loop),
             f"{interface_name} Pre-Check",
@@ -149,9 +150,11 @@ def execute_one_backhaul_test(
             max_total_limit=_precheck_max_limit,
             write_summary_on_pass=False,
             write_summary_on_fail=False,
+            reason_out=_precheck_reason_out,
         )
         if not precheck_ok:
-            fail_reason = f"Booster 未連回 TSM4 ({_precheck_max_limit}s)"
+            _base = f"Booster 未連回 TSM4 ({_precheck_max_limit}s)"
+            fail_reason = f"{_base} | {_precheck_reason_out[0]}" if _precheck_reason_out else _base
             write_summary(summary_loop_display(str(loop), interface_name), interface_name, "N/A", "FAIL", fail_reason)
             log_result(f"Loop {loop} {interface_name}: FAIL, Booster 未能透過 {backhaul_name} 連線，跳過 reboot 測試")
             log_progress(f"!! {interface_name} Pre-Check FAIL，Booster 未連上 {backhaul_name}，停止測試 !!")
@@ -390,6 +393,21 @@ def run_gui_action_case(action_xpath, action_label, max_total_limit, threshold=N
                 log_progress(f"LOOP {loop} 完成，恢復 ETH BH，等待 {cfg.LOOP_ETH_RESTORE_WAIT}s 讓 Booster 穩定...")
                 restore_eth_backhaul(f"Loop {loop} cooldown")
                 receive_monitor(cfg.LOOP_ETH_RESTORE_WAIT)
+                log_step(f"{cfg.TEST_CASE_NAME}: Loop {loop} cooldown post-check, verify Booster onboard before Loop {loop + 1}")
+                log_progress(f"LOOP {loop} cooldown: 確認 Booster 已 onboard (ETH BH)，才開始 Loop {loop + 1}...")
+                cooldown_ok = poll_booster_console(
+                    str(loop),
+                    "Loop Cooldown ETH BH",
+                    0,
+                    cfg.ONBOARDING_THRESHOLD,
+                    max_total_limit=cfg.NORMAL_MAX_TOTAL_LIMIT,
+                    write_summary_on_pass=False,
+                    write_summary_on_fail=False,
+                )
+                if not cooldown_ok:
+                    log_result(f"{cfg.TEST_CASE_NAME}: Loop {loop} cooldown post-check FAIL，Booster 未 onboard，停止測試")
+                    log_progress(f"LOOP {loop} cooldown Booster 未連線，無法繼續 Loop {loop + 1}，停止測試。")
+                    return False
 
         log_step(f"{cfg.TEST_CASE_NAME}: all loops PASS, restore ETH BH")
         restore_eth_backhaul("測試 PASS 結束")
