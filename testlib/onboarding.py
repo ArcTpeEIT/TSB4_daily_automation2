@@ -80,17 +80,19 @@ def _monitor_wait(wait_seconds, ser=None):
     return receive_monitor(wait_seconds, ser)
 
 
-def build_onboarding_fail_reason(has_onboarding, has_ping, has_map_uci, has_ip=None, prefix=""):
+def build_onboarding_fail_reason(has_onboarding, has_ping, has_map_uci, has_ip=None, prefix="", state_value=None, map_uci_value=None):
     reasons = []
     if not has_onboarding:
-        reasons.append("Onboarding State Fail")
+        val = f"({state_value})" if state_value is not None else ""
+        reasons.append(f"Onboarding State Fail{' ' + val if val else ''}")
     if not has_ping:
         if has_ip is False:
             reasons.append("No IP (br-lan)")
         else:
             reasons.append("Ping Fail")
     if not has_map_uci:
-        reasons.append("repacd.MAPConfig.OnboardingDone Fail")
+        val = f"({map_uci_value})" if map_uci_value is not None else ""
+        reasons.append(f"repacd MAP Done Fail{' ' + val if val else ''}")
     if not reasons:
         reasons.append("Onboarding Timeout (條件均通過，但未達穩定閾值)")
     reason = " + ".join(reasons)
@@ -323,7 +325,7 @@ def final_onboarding_check(ser, interface_name):
     log_details("-" * 50)
 
     # 三維指標必須全部為 True 才判定最終過關
-    return has_onboarding and has_ping and has_map_uci, has_onboarding, has_ping, has_map_uci, has_ip
+    return has_onboarding and has_ping and has_map_uci, has_onboarding, has_ping, has_map_uci, has_ip, state_value, map_uci_value
 
 
 def run_rd_poll_debug_dump(ser, interface_name, round_index, poll_status="UNKNOWN"):
@@ -343,40 +345,43 @@ def run_rd_poll_debug_dump(ser, interface_name, round_index, poll_status="UNKNOW
     group_mode = _cfg_bool("RD_POLL_DEBUG_GROUP_MODE", True)
     marker_text = "NOT_RUN"
 
-    log_details("")
-    log_details(
-        f"[RD DEBUG][SERIAL][{interface_name}][round={round_index}] "
-        f"command begin, poll_status={poll_status}, commands={len(commands)}, "
-        f"timeout={read_time}s, group_mode={'ON' if group_mode else 'OFF'}"
-    )
+    cmd_list = " | ".join(commands)
+    log_details(f"[RD DEBUG] {'=' * 60}")
+    log_details(f"[RD DEBUG] Round={round_index}  Status={poll_status}  Interface={interface_name}")
+    log_details(f"[RD DEBUG] CMD: {cmd_list}")
+    log_details(f"[RD DEBUG] {'-' * 60}")
 
     try:
         with _SERIAL_IO_LOCK:
             if group_mode:
                 marker = f"__ARC_RD_DEBUG_GROUP_DONE_{round_index}_{int(time.time() * 1000)}__"
                 group_cmd = _build_rd_debug_group_command(commands, marker)
-                log_details(f"[RD DEBUG][GROUP CMD] {_short_cmd(group_cmd, limit=260)}")
                 ser.write((group_cmd + "\n").encode("utf-8"))
-                done_seen, _ = _receive_until_marker_or_timeout(ser, marker, read_time, slice_time)
+                done_seen, raw_output = _receive_until_marker_or_timeout(ser, marker, read_time, slice_time)
                 marker_text = "DONE" if done_seen else "TIMEOUT"
+                for line in raw_output.replace("\r", "").split("\n"):
+                    stripped = line.strip()
+                    if not stripped:
+                        continue
+                    if stripped == "__ARC_RD_DEBUG_GROUP_BEGIN__" or stripped.startswith("__ARC_RD_DEBUG_GROUP_DONE_"):
+                        continue
+                    log_details(f"[RD DEBUG]  {stripped}")
             else:
                 marker_text = "FIXED_WAIT"
                 for cmd_index, cmd in enumerate(commands, start=1):
-                    log_details(f"[RD DEBUG][CMD {cmd_index}/{len(commands)}] {_short_cmd(cmd)}")
+                    log_details(f"[RD DEBUG] [{cmd_index}/{len(commands)}] {_short_cmd(cmd)}")
                     ser.write((cmd + "\n").encode("utf-8"))
                     receive_monitor(read_time, ser)
     except Exception as e:
         marker_text = f"ERROR:{type(e).__name__}"
-        log_details(f"[RD DEBUG][ERROR] {type(e).__name__}: {e}")
-    log_details(
-        f"[RD DEBUG][SERIAL][{interface_name}][round={round_index}] "
-        f"command end, marker={marker_text}"
-    )
+        log_details(f"[RD DEBUG] ERROR: {type(e).__name__}: {e}")
+    log_details(f"[RD DEBUG] END  marker={marker_text}")
+    log_details(f"[RD DEBUG] {'=' * 60}")
     log_details("")
     return marker_text
 
 
-def poll_booster_console(loop_str, interface_name, init_wait_time=None, threshold=None, max_total_limit=None, duration_start_time=None, write_summary_on_pass=True, write_summary_on_fail=True, show_loop_number=False):
+def poll_booster_console(loop_str, interface_name, init_wait_time=None, threshold=None, max_total_limit=None, duration_start_time=None, write_summary_on_pass=True, write_summary_on_fail=True, show_loop_number=False, reason_out=None):
     init_wait_time = cfg.INIT_WAIT_TIME if init_wait_time is None else init_wait_time
     threshold = cfg.ONBOARDING_THRESHOLD if threshold is None else threshold
     max_total_limit = cfg.NORMAL_MAX_TOTAL_LIMIT if max_total_limit is None else max_total_limit
@@ -403,6 +408,8 @@ def poll_booster_console(loop_str, interface_name, init_wait_time=None, threshol
 
         consecutive_count = 0
         last_fail_reason = "Onboarding Timeout: 末次輪詢條件達標，但連續次數不足"
+        last_state_value = None
+        last_map_uci_value = None
         saw_valid_polling_output = False
         poll_start_time = time.time()
         poll_round = 0
@@ -444,8 +451,10 @@ def poll_booster_console(loop_str, interface_name, init_wait_time=None, threshol
 
                 if output.strip():
                     saw_valid_polling_output = True
+                    last_state_value = state_value
+                    last_map_uci_value = map_uci_value
                     if not (has_onboarding and has_ping and has_map_uci):
-                        last_fail_reason = build_onboarding_fail_reason(has_onboarding, has_ping, has_map_uci, has_ip=has_ip)
+                        last_fail_reason = build_onboarding_fail_reason(has_onboarding, has_ping, has_map_uci, has_ip=has_ip, state_value=state_value, map_uci_value=map_uci_value)
 
                 # 【修改成功判定】
                 if has_onboarding and has_ping and has_map_uci:
@@ -481,9 +490,9 @@ def poll_booster_console(loop_str, interface_name, init_wait_time=None, threshol
                     _monitor_wait(cfg.PASS_COOLDOWN_TIME, ser)
                     log_progress(f"[{cfg.BOOSTER_PORT} - {interface_name}] 冷卻完成，執行最後一次 onboarding 確認...")
 
-                    final_ok, final_has_onboarding, final_has_ping, final_has_map_uci, final_has_ip = final_onboarding_check(ser, interface_name)
+                    final_ok, final_has_onboarding, final_has_ping, final_has_map_uci, final_has_ip, final_state_value, final_map_uci_value = final_onboarding_check(ser, interface_name)
                     if not final_ok:
-                        last_fail_reason = build_onboarding_fail_reason(final_has_onboarding, final_has_ping, final_has_map_uci, has_ip=final_has_ip, prefix="Final Check Fail")
+                        last_fail_reason = build_onboarding_fail_reason(final_has_onboarding, final_has_ping, final_has_map_uci, has_ip=final_has_ip, prefix="Final Check Fail", state_value=final_state_value, map_uci_value=final_map_uci_value)
                         log_result(f"{interface_name}: FAIL, {last_fail_reason}")
                         log_progress(f"[{cfg.BOOSTER_PORT} - {interface_name}] {last_fail_reason}，計數器歸零並重新開始 polling。")
                         consecutive_count = 0
@@ -515,6 +524,9 @@ def poll_booster_console(loop_str, interface_name, init_wait_time=None, threshol
         if write_summary_on_fail:
             _loop_display = loop_str if show_loop_number else summary_loop_display(loop_str, interface_name)
             write_summary(_loop_display, interface_name, "N/A", "FAIL", f"COM Error: {e}")
+        if reason_out is not None:
+            reason_out.clear()
+            reason_out.append(f"COM Error: {e}")
         if close_after_use and ser is not None:
             try:
                 ser.close()
@@ -526,6 +538,9 @@ def poll_booster_console(loop_str, interface_name, init_wait_time=None, threshol
     log_progress(f"[{cfg.BOOSTER_PORT}] >>> 輪詢超時 (FAIL, MAX_TOTAL_LIMIT={max_total_limit} 秒)！ <<<")
     if not locals().get("saw_valid_polling_output", False):
         last_fail_reason = f"No Valid Onboarding Output ({max_total_limit}s timeout, Booster 無回應)"
+    if reason_out is not None:
+        reason_out.clear()
+        reason_out.append(last_fail_reason)
     if write_summary_on_fail:
         _loop_display = loop_str if show_loop_number else summary_loop_display(loop_str, interface_name)
         write_summary(_loop_display, interface_name, f"Timeout({max_total_limit}s)", "FAIL", last_fail_reason)
