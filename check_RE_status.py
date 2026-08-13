@@ -38,7 +38,8 @@ SSH_DISCOVER_INTERFACE = "br-lan"
 # Precheck commands are kept, but their output is summarized instead of dumped raw.
 PRECHECK_COMMANDS = {
     "WiFi link": "iw dev ath1 link",
-    "DFS CAC": "DFS_CAC_chk.sh",
+    # "DFS CAC": "DFS_CAC_chk.sh",
+    "wsplcd": "ps | grep wsplcd",
     "WiFi interfaces": "WiFi_inf_ChOnOff.sh",
     "LED/status": "chk_Status.sh",
 }
@@ -379,8 +380,8 @@ def run_prechecks(command_runner) -> Dict[str, str]:
 
         if name == "WiFi link":
             print_block(f"{name}: {cmd}", summarize_wifi_link(output), max_lines=8)
-        elif name == "DFS CAC":
-            print_block(f"{name}: {cmd}", output, max_lines=80)
+        elif name == "wsplcd":
+            print_block(f"{name}: {cmd}", output, max_lines=20)
         elif name == "WiFi interfaces":
             print_block(f"{name}: {cmd}", output, max_lines=80)
         elif name == "LED/status":
