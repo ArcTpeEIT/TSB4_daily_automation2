@@ -16,9 +16,9 @@ jobs:
       - name: 等待 10 秒 
         run: Start-Sleep -s 10
 
-      - name: 3. 執行測試 Case10 ~ Case14
+      - name: 3. 執行測試 Retest Cases
         continue-on-error: true
-        run: python run_all_cases_like_github.py --only case10,case11,case12,case13,case14
+        run: python run_all_cases_like_github.py --only case1,case5,case7,case12,final_factory,collect
         
 
 
