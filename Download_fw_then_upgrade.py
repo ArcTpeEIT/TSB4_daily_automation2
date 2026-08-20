@@ -130,14 +130,34 @@ def step1_sftp_download():
 
         log_step(f"FW upgrade: find latest daily build folder under {BASE_ROOT}")
         dirs = sftp.listdir(BASE_ROOT)
-        date_dirs = sorted([d for d in dirs if d.startswith("202")])
+        date_dirs = [d for d in dirs if d.startswith("202")]
         if not date_dirs:
             log_result("FW upgrade FAIL: no daily build date folder found")
             return False
+
+        def _folder_sort_key(name):
+            # New format: 2026-08-20_03-00-01 -> comparable as-is (ISO-like)
+            m = re.match(r'^(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})$', name)
+            if m:
+                return name
+            # Old format: 2026-0819 -> normalize to 2026-08-19_ (underscore ensures old < new same day)
+            m = re.match(r'^(\d{4})-(\d{2})(\d{2})$', name)
+            if m:
+                return f"{m.group(1)}-{m.group(2)}-{m.group(3)}_"
+            return name
+
+        date_dirs = sorted(date_dirs, key=_folder_sort_key)
         latest_dir = date_dirs[-1]
         log_result(f"FW upgrade: latest daily build folder = {latest_dir}")
 
-        target_path = f"{BASE_ROOT}{latest_dir}/R0B_SPF12.5_FW/"
+        date_folder = f"{BASE_ROOT}{latest_dir}/"
+        log_step(f"FW upgrade: list subfolders under {date_folder}")
+        sub_dirs = sftp.listdir(date_folder)
+        fw_sub = next((d for d in sub_dirs if "FW" in d), None)
+        if not fw_sub:
+            log_result(f"FW upgrade FAIL: no FW subfolder found under {date_folder}, found={sub_dirs}")
+            return False
+        target_path = f"{date_folder}{fw_sub}/"
         log_step(f"FW upgrade: search ArcSigned firmware under {target_path}")
         files = sftp.listdir(target_path)
         fw_files = [f for f in files if "ArcSigned" in f and f.endswith(".bin")]
