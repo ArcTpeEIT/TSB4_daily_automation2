@@ -40,10 +40,14 @@ jobs:
       - name: 8. 執行測試 case10, Case11
         continue-on-error: true
         run: python run_all_cases_like_github.py --only case10,case11
+        
+      - name: 9. Crash Summary   
+        if: always()
+        run: python run_all_cases_like_github.py --only crash_summary
 
       - name: 10. Collect All log 
         if: always()
-        run: python run_all_cases_like_github.py --only collect_bill
+        run: python run_all_cases_like_github.py --only collect
 
       - name: 11. Final TSM4 GUI Factory Default
         if: always()
