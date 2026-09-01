@@ -94,7 +94,7 @@ def build_steps() -> list[Step]:
     selected_cases = [
         Step("case1", "Case 1 Factory Default Onboarding", py("cases/case1_re_factory_default_modular.py", *loops_arg), 300),
         #Step("case1", "Case 1 Factory Default Onboarding", py("cases/case1_re_factory_default_modular.py", "--loops", "5"), 300),
-        Step("case2", "Case 2 Standard Onboarding", py("cases/case2_eth_wifi_onboarding_modular.py", *loops_arg), 60),
+        Step("case2", "Case 2 Standard Onboarding", py("cases/case2_eth_wifi_onboarding_modular.py", *loops_arg), 300),
         Step("case3", "Case 3 Warm Reboot Onboarding", py("cases/case3_re_warm_reboot_modular.py", *loops_arg), 300),
         Step("case4", "Case 4 Cold Reboot Onboarding", py("cases/case4_re_cold_reboot_modular.py", *loops_arg), 300),
         Step("case5", "Case 5 TSM4 GUI Reboot", py("cases/case5_tsm4_restart_modular.py", *loops_arg), 300),
@@ -113,6 +113,7 @@ def build_steps() -> list[Step]:
         Step("initial_wait", "Initial wait", sleep_s=10),
         Step("fw_upgrade", "Firmware upgrade", py("Download_fw_then_upgrade.py"), 300, enabled=ENABLE_FW_UPGRADE),
         *selected_cases,
+        Step("crash_summary", "Scan Console logs for Kernel panic / crash (standalone)", py("post_run_crash_summary.py"), 0),
         Step("collect", "Collect all log / diag then email (main)", py("TSB4_collect_zip_upload_sftp_then_email_v8_clean_sftp_email.py"), 60),
         Step("collect_bill", "Collect all log / diag then email (bill)", py("TSB4_collect_zip_upload_sftp_then_email_v8_clean_sftp_email_bill.py"), 60),
         Step("final_factory", "Final TSM4 GUI Factory Default", py("tsm4_gui_factory_default_standalone.py"), 60),

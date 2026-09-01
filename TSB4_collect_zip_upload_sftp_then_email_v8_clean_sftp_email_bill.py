@@ -46,10 +46,6 @@ def send_email(subject, body, attachments=None):
     # receiver = 'bill_chen@arcadyan.com'
     receivers = [
     'bill_chen@arcadyan.com',
-    'zach_chu@arcadyan.com',
-    'chocho_chen@arcadyan.com',
-    'dennis_chiang@arcadyan.com',
-    'quantum_wu@arcadyan.com',    
     ]
     app_password = 'apthsnwksezkwtbo'
 
@@ -175,6 +171,128 @@ CASE_DESCRIPTIONS = {
 }
 
 
+# ==================== Crash / Kernel Panic Scanner ====================
+_CRASH_PRIMARY   = ["Kernel panic", "Fatal exception"]
+_CRASH_SECONDARY = [
+    "Unable to handle kernel", "Rebooting in", "CRASHED",
+    "Crash shutdown", "Oops:", "platform_mlo.c",
+]
+_CRASH_EXCLUDE_PATTERN = "adfs"   # filter out adfs debug lines
+
+import re as _re
+
+
+def _line_is_crash(line, keywords, exclude=None):
+    low = line.lower()
+    if exclude and exclude in low:
+        return False
+    for kw in keywords:
+        if kw.lower() in low:
+            return kw
+    return None
+
+
+def scan_console_for_crashes(console_files):
+    """Scan *Console.log files and return a crash report dict.
+
+    Returns:
+        {
+          "total_panic": int,          # Kernel panic / Fatal exception count
+          "case_results": [            # one entry per file
+            {
+              "filename": str,
+              "primary": [(lineno, ts, kw, preview), ...],
+              "secondary": [(lineno, ts, kw, preview), ...],
+            }, ...
+          ]
+        }
+    """
+    ts_re = _re.compile(r"\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})")
+    case_results = []
+    total_panic = 0
+
+    for fpath in console_files:
+        primary = []
+        secondary = []
+        try:
+            with open(fpath, "r", encoding="utf-8", errors="replace") as f:
+                for lineno, raw in enumerate(f, 1):
+                    line = raw.rstrip()
+                    m = ts_re.search(line)
+                    ts = m.group(1) if m else ""
+                    preview = line.strip()[:150]
+
+                    kw = _line_is_crash(line, _CRASH_PRIMARY)
+                    if kw:
+                        primary.append((lineno, ts, kw, preview))
+                        continue
+                    kw2 = _line_is_crash(line, _CRASH_SECONDARY, exclude=_CRASH_EXCLUDE_PATTERN)
+                    if kw2:
+                        secondary.append((lineno, ts, kw2, preview))
+        except Exception as exc:
+            primary.append((0, "", "READ_ERROR", str(exc)))
+
+        total_panic += len(primary)
+        case_results.append({
+            "filename": os.path.basename(fpath),
+            "primary": primary,
+            "secondary": secondary,
+        })
+
+    # Sort: crash cases first
+    case_results.sort(key=lambda r: (0 if r["primary"] else 1, r["filename"]))
+    return {"total_panic": total_panic, "case_results": case_results}
+
+
+def build_crash_summary_text(crash_report):
+    """Build human-readable crash summary block for email / log."""
+    lines = []
+    sep = "=" * 72
+    total = crash_report["total_panic"]
+
+    lines.append(sep)
+    lines.append("  DUT CRASH / KERNEL PANIC SUMMARY")
+    lines.append(f"  Kernel panic / Fatal exception total: {total}")
+    lines.append(sep)
+
+    for r in crash_report["case_results"]:
+        if not r["primary"] and not r["secondary"]:
+            continue
+        status = f"KERNEL PANIC x{len(r['primary'])}" if r["primary"] else "crash-related"
+        lines.append(f"\n[{status}]  {r['filename']}")
+        if r["primary"]:
+            lines.append(f"  Primary ({len(r['primary'])} event(s)):")
+            for lineno, ts, kw, preview in r["primary"]:
+                ts_str = f"  {ts}" if ts else ""
+                lines.append(f"    L{lineno:>6}{ts_str}  [{kw}]")
+                lines.append(f"           {preview}")
+        if r["secondary"]:
+            lines.append(f"  Secondary context ({len(r['secondary'])} hit(s)):")
+            for lineno, ts, kw, preview in r["secondary"][:10]:  # cap at 10 for readability
+                ts_str = f"  {ts}" if ts else ""
+                lines.append(f"    L{lineno:>6}{ts_str}  [{kw}]")
+                lines.append(f"           {preview}")
+            if len(r["secondary"]) > 10:
+                lines.append(f"    ... and {len(r['secondary']) - 10} more secondary hits")
+
+    lines.append(sep)
+    return "\n".join(lines)
+
+
+def build_crash_email_highlight(crash_report):
+    """Short crash highlight block for email body (top section)."""
+    total = crash_report["total_panic"]
+    if total == 0:
+        return "No Kernel panic / Fatal exception detected."
+
+    lines = [f"⚠ Kernel panic / Fatal exception detected in {total} event(s):"]
+    for r in crash_report["case_results"]:
+        if r["primary"]:
+            lines.append(f"  - {r['filename']}  →  PANIC x{len(r['primary'])}")
+    return "\n".join(lines)
+# ======================================================================
+
+
 def normalize_case_name(raw_case_name):
     """Normalize the case name read from the first line of Summary.log."""
     case_name = raw_case_name.strip()
@@ -245,6 +363,11 @@ def main():
     screenshot_files = sorted(glob.glob("*.png"))
 
     log_result(f"Final collect: found Summary={len(summary_files)}, Console={len(console_files)}, diagnostic={len(diagnostic_files)}, tsm4_gui_log={len(tsm4_gui_files)}, screenshot={len(screenshot_files)}")
+
+    # ---- Crash scan ----
+    log_step("Final collect: scan Console logs for Kernel panic / Fatal exception")
+    crash_report = scan_console_for_crashes(console_files)
+    log_result(f"Final collect: crash scan done, total_panic={crash_report['total_panic']}")
 
     if not summary_files:
         log_result("Final collect FAIL: no Summary.log files found")
@@ -364,6 +487,11 @@ def main():
                 outfile.write(f"!! {issue}\n")
             outfile.write("-" * 50 + "\n\n")
 
+        # Crash summary section
+        crash_text = build_crash_summary_text(crash_report)
+        outfile.write("[ DUT Crash / Kernel Panic Summary ]\n")
+        outfile.write(crash_text + "\n\n")
+
         outfile.write("[ Detailed Logs ]\n")
         for f_path in summary_files:
             outfile.write(f"\n>> FILE: {os.path.basename(f_path)}\n")
@@ -372,8 +500,18 @@ def main():
             outfile.write("\n" + "=" * 95 + "\n")
 
     log_result(f"Final collect: all-case summary generated, pass={pass_count}, fail={fail_count}")
+
+    # Write standalone crash summary log
+    crash_summary_file = os.path.join(target_folder, f"{fw_version}_all_crash_summary.log")
+    with open(crash_summary_file, "w", encoding="utf-8") as cf:
+        cf.write(f"POST-RUN CRASH SUMMARY\n")
+        cf.write(f"Generated : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        cf.write(f"FW        : {fw_version}\n\n")
+        cf.write(build_crash_summary_text(crash_report) + "\n")
+    log_result(f"Final collect: crash summary written to {crash_summary_file}")
+
     log_step(f"Final collect: create ZIP report {zip_name}")
-    files_to_zip = [all_summary_name] + summary_files + console_files + diagnostic_files + tsm4_gui_files + screenshot_files
+    files_to_zip = [all_summary_name, crash_summary_file] + summary_files + console_files + diagnostic_files + tsm4_gui_files + screenshot_files
 
     with zipfile.ZipFile(zip_name, "w", zipfile.ZIP_DEFLATED) as zf:
         for log_f in files_to_zip:
@@ -412,9 +550,13 @@ def main():
     sftp_uploaded_text = "\n".join(f"  - {p}" for p in uploaded_paths) if uploaded_paths else "None"
 
     subject = f"[{status}] TSB4 Automation Test Report - {fw_version} - {now_str}"
+    crash_highlight = build_crash_email_highlight(crash_report)
 
     body = f"""Firmware: {fw_version}
 Test Status: {status}
+
+[ DUT Crash / Kernel Panic ]
+{crash_highlight}
 
 [ Critical Issue Highlight ]
 {issue_highlight}
