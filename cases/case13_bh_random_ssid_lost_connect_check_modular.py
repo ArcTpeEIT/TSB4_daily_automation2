@@ -47,6 +47,7 @@ from testlib.logger import (
 from testlib.env_info import get_environment_fw_versions_close_browser
 from testlib.relay import control_relay, control_relay_channel, restore_eth_backhaul
 from testlib.recovery import safe_handle_fail_recovery
+from testlib.dut_health import wait_for_onboarding_if_recently_rebooted
 from testlib.serial_console import (
     receive_monitor,
     get_serial_for_command,
@@ -255,6 +256,11 @@ def run_case13(args):
         log_step(f"Case13 start: loops={cfg.TOTAL_LOOPS}, ETH BH only, expected_prefix={cfg.CASE13_EXPECTED_RANDOM_PREFIX}")
         log_progress("Case13 policy: ETH BH only; PASS requires ArcFHRandomSSID starts with BH_5_; no WiFi BH stage.")
         log_progress("Case13 recovery policy: no factory-default GW+RE workaround inside this case.")
+
+        if not wait_for_onboarding_if_recently_rebooted(log_prefix="[CASE13]"):
+            log_progress("Case13 FAIL: DUT onboarding 未就緒 (可能前一個 case 觸發了 reboot)")
+            write_summary("0", "Pre-check", "N/A", "FAIL", "DUT_Onboarding_Not_Ready_At_Start")
+            return 1
 
         for loop in range(1, cfg.TOTAL_LOOPS + 1):
             loop_str = str(loop)

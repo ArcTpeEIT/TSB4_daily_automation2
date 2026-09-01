@@ -21,6 +21,7 @@ from testlib.env_info import get_environment_fw_versions_close_browser
 from testlib.relay import control_relay, restore_eth_backhaul, restore_eth_backhaul_between_loops
 from testlib.serial_console import receive_monitor, start_background_serial_logger, stop_background_serial_logger
 from testlib.onboarding import run_polling_or_recover
+from testlib.dut_health import wait_for_onboarding_if_recently_rebooted
 
 
 def parse_args():
@@ -63,6 +64,10 @@ def run_test():
         init_summary_log(router_fw, booster_fw)
         log_separator(f"自動化測試啟動 (共計 {cfg.TOTAL_LOOPS} Loops) - {cfg.TEST_CASE_NAME}")
         log_progress("Case2 policy: ETH/WiFi onboarding only; ETH BH FAIL will not continue WiFi BH.")
+
+        if not wait_for_onboarding_if_recently_rebooted(log_prefix="[CASE2]"):
+            log_progress("Case2 FAIL: DUT onboarding 未就緒 (可能前一個 case 觸發了 reboot)")
+            return 1
 
         for loop in range(1, cfg.TOTAL_LOOPS + 1):
             log_separator(f"LOOP {loop} - ETH BH 測試開始")

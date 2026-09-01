@@ -51,6 +51,7 @@ from testlib.serial_console import (
 from testlib.ssh_client import run_ssh_command, discover_ssh_host_by_serial
 from testlib.recovery import safe_handle_fail_recovery
 from testlib.web_gui import save_gui_screenshot
+from testlib.dut_health import wait_for_onboarding_if_recently_rebooted, monitored_wait
 from cases._case_common import add_common_args, apply_common_args
 
 
@@ -383,8 +384,9 @@ def run_one_stage(loop_str, interface_name, ssid, key, monitor_time):
     if not gui_ok:
         return False, gui_reason
 
-    log_progress(f"GUI apply 完成，receive_monitor {monitor_time}s 等待 RE UCI 同步")
-    receive_monitor(monitor_time)
+    log_progress(f"GUI apply 完成，monitored_wait {monitor_time}s 等待 RE UCI 同步")
+    if not monitored_wait(monitor_time, f"Case10 {interface_name} GUI apply sync", check_interval=30):
+        return False, f"DUT_Unexpected_Reboot_During_{interface_name.replace(' ', '_')}_Monitor_Wait"
 
     return check_re_wifi_sync(ssid, key)
 
@@ -394,6 +396,11 @@ def run_test():
         router_fw, booster_fw = get_environment_fw_versions_close_browser()
         init_summary_log(router_fw, booster_fw)
         log_separator(f"自動化測試啟動 (共計 {cfg.TOTAL_LOOPS} Loops) - {cfg.TEST_CASE_NAME}")
+
+        if not wait_for_onboarding_if_recently_rebooted(log_prefix="[CASE10]"):
+            log_progress("Case10 FAIL: DUT onboarding 未就緒 (可能前一個 case 觸發了 reboot)")
+            write_summary("0", "Pre-check", "N/A", "FAIL", "DUT_Onboarding_Not_Ready_At_Start")
+            return 1
 
         for loop in range(1, cfg.TOTAL_LOOPS + 1):
             eth_ssid, eth_key = generate_wifi_profile(_cfg("CASE10_ETH_SSID_PREFIX", "ETHSYNC"))

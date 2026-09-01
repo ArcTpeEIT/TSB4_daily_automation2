@@ -41,6 +41,7 @@ from testlib.logger import init_log_filenames, log_progress, log_step, log_resul
 from testlib.env_info import create_chrome_driver, get_environment_fw_versions_close_browser
 from testlib.relay import control_relay, restore_eth_backhaul, restore_eth_backhaul_between_loops
 from testlib.recovery import safe_handle_fail_recovery
+from testlib.dut_health import wait_for_onboarding_if_recently_rebooted, monitored_wait
 from testlib.serial_console import (
     receive_monitor,
     start_background_serial_logger,
@@ -602,7 +603,9 @@ def run_wireless_disable_enable_stage(stage_name: str, init_wait: int, relay_sta
     log_progress(f"STEP: Relay 6 切換 ({relay_state.upper()}) 配置 {stage_name}")
     control_relay(relay_state)
     log_progress(f"{stage_name} init wait = {init_wait} 秒")
-    receive_monitor(init_wait)
+    if not monitored_wait(init_wait, f"{stage_name} init", check_interval=int(getattr(cfg, "CASE12_INIT_WAIT_CHECK_INTERVAL", 30))):
+        fd = f"{stage_name}: DUT 在 init wait 期間發生未預期 reboot"
+        return False, f"{stage_name} Unexpected Reboot", fd
 
     log_separator(f"{stage_name} - STEP 1: TSM4 GUI Disable Wireless")
     if not set_tsm4_wireless_with_retry(host, desired_enabled=False, action_label=f"{stage_name} Disable Wireless"):
@@ -696,6 +699,12 @@ def run_test() -> int:
         _case12_fail_recovery(0, "ETH BH", "No_Booster_SSH_Host", host)
         return 1
     log_progress(f"Case12 使用 Booster SSH host: {host}")
+
+    if not wait_for_onboarding_if_recently_rebooted(log_prefix="[CASE12]"):
+        log_progress("Case12 FAIL: DUT onboarding 未就緒 (可能前一個 case 觸發了 reboot)")
+        write_summary("LOOP -", "Pre-check", "N/A", "FAIL", "DUT_Onboarding_Not_Ready_At_Start")
+        _case12_fail_recovery(0, "ETH BH", "DUT_Not_Ready_At_Start", host)
+        return 1
 
     log_progress("Case12 GUI policy: 不預先開啟 Chrome；只在 Disable/Enable Wireless 動作期間開啟，動作完成後立即關閉。")
 
